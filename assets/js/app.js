@@ -764,13 +764,13 @@ function scrollToSection(sectionId) {
   const activeEl = document.querySelector(`[data-step="${sectionId}"]`);
   if (activeEl) activeEl.classList.add('active');
 
-  // Scroll form panel to the target section (accounting for fixed navbar)
+  // Scroll the form panel element to the target section
   const target = document.getElementById(`section-${sectionId}`);
-  if (target) {
-    const navbarHeight = 60; // --navbar-h
+  const formPanel = document.getElementById('formPanel');
+  if (target && formPanel) {
     const extraPadding = 16;
-    const targetTop = target.getBoundingClientRect().top + window.pageYOffset - navbarHeight - extraPadding;
-    window.scrollTo({ top: targetTop, behavior: 'smooth' });
+    const scrollTop = formPanel.scrollTop + target.getBoundingClientRect().top - formPanel.getBoundingClientRect().top - extraPadding;
+    formPanel.scrollTo({ top: scrollTop, behavior: 'smooth' });
   }
 }
 
