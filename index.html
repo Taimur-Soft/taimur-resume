@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Taimur Rahman Resume Builder</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: #f1f5f9; color: #1e293b; }
+
+    /* Navbar */
+    nav {
+      background: white; padding: 0 40px; height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 10;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+    }
+    .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+    .logo-icon {
+      width: 38px; height: 38px; border-radius: 9px;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      color: white; font-weight: 800; font-size: 15px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo-text em { color: #2563eb; font-style: normal; }
+    .nav-cta {
+      padding: 10px 24px; background: #2563eb; color: white;
+      border-radius: 9px; font-weight: 600; font-size: 14px;
+      text-decoration: none; transition: background 0.15s;
+    }
+    .nav-cta:hover { background: #1d4ed8; }
+
+    /* Hero */
+    .hero {
+      text-align: center; padding: 80px 20px 60px;
+      background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+    }
+    .hero-badge {
+      display: inline-block; padding: 6px 16px; border-radius: 99px;
+      background: #eff6ff; border: 1px solid #bfdbfe; color: #2563eb;
+      font-size: 13px; font-weight: 600; margin-bottom: 24px;
+    }
+    .hero h1 { font-size: clamp(32px, 5vw, 52px); font-weight: 800; line-height: 1.15; max-width: 700px; margin: 0 auto 20px; }
+    .hero h1 span { color: #2563eb; }
+    .hero p { font-size: 18px; color: #64748b; max-width: 540px; margin: 0 auto 36px; line-height: 1.7; }
+    .hero-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .btn-hero {
+      padding: 14px 32px; border-radius: 10px; font-size: 16px; font-weight: 700;
+      text-decoration: none; transition: all 0.15s; display: flex; align-items: center; gap: 8px;
+    }
+    .btn-hero-primary { background: #2563eb; color: white; box-shadow: 0 4px 16px rgba(37,99,235,0.35); }
+    .btn-hero-primary:hover { background: #1d4ed8; transform: translateY(-1px); }
+    .btn-hero-outline { background: white; color: #1e293b; border: 2px solid #e2e8f0; }
+    .btn-hero-outline:hover { border-color: #2563eb; color: #2563eb; }
+
+    /* Stats */
+    .stats { display: flex; gap: 48px; justify-content: center; padding: 32px 20px; background: white; border-top: 1px solid #e2e8f0; flex-wrap: wrap; }
+    .stat { text-align: center; }
+    .stat-num { font-size: 28px; font-weight: 800; color: #2563eb; }
+    .stat-label { font-size: 13px; color: #64748b; margin-top: 2px; }
+
+    /* Features */
+    .features { padding: 72px 20px; max-width: 1100px; margin: 0 auto; }
+    .section-title { text-align: center; margin-bottom: 48px; }
+    .section-title h2 { font-size: 32px; font-weight: 800; margin-bottom: 10px; }
+    .section-title p { color: #64748b; font-size: 16px; }
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+    .feature-card {
+      background: white; border-radius: 14px; padding: 28px;
+      border: 1px solid #e2e8f0; box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .feature-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+    .feature-icon {
+      width: 48px; height: 48px; border-radius: 12px; margin-bottom: 16px;
+      display: flex; align-items: center; justify-content: center; font-size: 20px;
+    }
+    .feature-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+    .feature-card p { font-size: 14px; color: #64748b; line-height: 1.6; }
+
+    /* Templates Preview */
+    .templates-section { background: white; padding: 72px 20px; border-top: 1px solid #e2e8f0; }
+    .templates-row { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; max-width: 900px; margin: 0 auto; }
+    .template-preview {
+      width: 140px; text-align: center;
+      border: 2px solid #e2e8f0; border-radius: 12px; overflow: hidden;
+      transition: border-color 0.15s; cursor: pointer;
+    }
+    .template-preview:hover { border-color: #2563eb; }
+    .tp-thumb { height: 100px; }
+    .tp-thumb-modern { background: linear-gradient(to right, #2a9e77 35%, #f5f5f5 35%); }
+    .tp-thumb-classic { background: white; border-top: 6px solid #1e293b; }
+    .tp-thumb-minimal { background: white; border-left: 4px solid #2563eb; }
+    .tp-thumb-professional { background: linear-gradient(180deg, #1e40af 30%, #f5f5f5 30%); }
+    .tp-thumb-creative { background: linear-gradient(135deg, #7c3aed 40%, #f5f5f5 40%); }
+    .tp-name { padding: 10px; font-size: 13px; font-weight: 600; }
+
+    /* CTA Section */
+    .cta-section {
+      text-align: center; padding: 80px 20px;
+      background: linear-gradient(135deg, #1e293b 0%, #1e40af 100%);
+      color: white;
+    }
+    .cta-section h2 { font-size: 32px; font-weight: 800; margin-bottom: 16px; }
+    .cta-section p { font-size: 16px; opacity: 0.8; margin-bottom: 32px; }
+
+    /* Footer */
+    footer {
+      background: #1e293b; color: #94a3b8;
+      text-align: center; padding: 24px; font-size: 13px;
+    }
+    footer a { color: #60a5fa; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="nav-logo">
+      <div class="logo-icon">TR</div>
+      <span class="logo-text">Taimur <em>Resume</em></span>
+    </div>
+    <a href="resume.html" class="nav-cta"><i class="fas fa-rocket"></i> Build Your Resume</a>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-badge">✨ Free · No Sign-up · Private Group</div>
+    <h1>Build a <span>Professional Resume</span><br>in Minutes</h1>
+    <p>Live preview, 5 templates, AI-powered ATS score, grammar check, GitHub import, and shareable link — all in one place.</p>
+    <div class="hero-buttons">
+      <a href="resume.html" class="btn-hero btn-hero-primary"><i class="fas fa-rocket"></i> Start Building Now</a>
+      <a href="#features" class="btn-hero btn-hero-outline"><i class="fas fa-info-circle"></i> See Features</a>
+    </div>
+  </section>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat"><div class="stat-num">5</div><div class="stat-label">Resume Templates</div></div>
+    <div class="stat"><div class="stat-num">100%</div><div class="stat-label">Free to Use</div></div>
+    <div class="stat"><div class="stat-num">0</div><div class="stat-label">Sign-up Required</div></div>
+    <div class="stat"><div class="stat-num">AI</div><div class="stat-label">Powered Tools</div></div>
+  </div>
+
+  <!-- Features -->
+  <section class="features" id="features">
+    <div class="section-title">
+      <h2>Everything You Need</h2>
+      <p>Powerful features to help you land your next job</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#eff6ff;color:#2563eb"><i class="fas fa-eye"></i></div>
+        <h3>Live Split-View Preview</h3>
+        <p>See your resume update in real-time as you type. No refresh needed — what you see is what you get.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#f0fdf4;color:#16a34a"><i class="fas fa-palette"></i></div>
+        <h3>5 Professional Templates</h3>
+        <p>Modern, Classic, Minimal, Professional, Creative — switch instantly with full color customization.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#fdf4ff;color:#7c3aed"><i class="fas fa-robot"></i></div>
+        <h3>AI ATS Score Checker</h3>
+        <p>Paste any job description and instantly see how well your resume matches. Never miss a keyword again.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#fffbeb;color:#d97706"><i class="fas fa-spell-check"></i></div>
+        <h3>Grammar & Tone Checker</h3>
+        <p>LanguageTool grammar check + Gemini AI tone analysis. Write with confidence and impact.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#f0f9ff;color:#0284c7"><i class="fab fa-github"></i></div>
+        <h3>GitHub Import</h3>
+        <p>Enter your GitHub username and auto-import your top projects, repos, bio, and tech stack.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#fff1f2;color:#e11d48"><i class="fas fa-share-alt"></i></div>
+        <h3>Shareable Link + QR Code</h3>
+        <p>Generate a compressed shareable URL and QR code. Share your resume anywhere, instantly.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#f0fdf4;color:#16a34a"><i class="fas fa-arrows-up-down-left-right"></i></div>
+        <h3>Drag & Drop Sections</h3>
+        <p>Reorder any section with drag & drop. Add custom sections like Certifications, Languages, etc.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#eff6ff;color:#2563eb"><i class="fas fa-save"></i></div>
+        <h3>Auto-Save + JSON Export</h3>
+        <p>Your work is auto-saved in your browser. Export as JSON to back up and restore anytime.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Templates Preview -->
+  <section class="templates-section">
+    <div class="section-title">
+      <h2>Choose Your Style</h2>
+      <p>5 carefully designed templates for every industry</p>
+    </div>
+    <div class="templates-row">
+      <div class="template-preview"><div class="tp-thumb tp-thumb-modern"></div><div class="tp-name">Modern</div></div>
+      <div class="template-preview"><div class="tp-thumb tp-thumb-classic"></div><div class="tp-name">Classic</div></div>
+      <div class="template-preview"><div class="tp-thumb tp-thumb-minimal"></div><div class="tp-name">Minimal</div></div>
+      <div class="template-preview"><div class="tp-thumb tp-thumb-professional"></div><div class="tp-name">Professional</div></div>
+      <div class="template-preview"><div class="tp-thumb tp-thumb-creative"></div><div class="tp-name">Creative</div></div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <h2>Ready to Build Your Resume?</h2>
+    <p>Free, fast, and no sign-up required. Start in seconds.</p>
+    <a href="resume.html" class="btn-hero btn-hero-primary" style="display:inline-flex;margin:0 auto">
+      <i class="fas fa-rocket"></i> Build My Resume Now
+    </a>
+  </section>
+
+  <footer>
+    <p>&copy; 2024 Taimur Rahman Resume Builder. All Rights Reserved.</p>
+  </footer>
+
+</body>
+</html>

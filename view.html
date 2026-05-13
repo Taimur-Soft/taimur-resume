@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resume — Taimur Rahman Builder</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <style>
+    body { background: #e8edf4; }
+    .view-navbar {
+      background: #1e293b; padding: 14px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .view-brand { color: white; font-weight: 700; font-size: 15px; text-decoration: none; }
+    .view-actions { display: flex; gap: 10px; }
+    .view-btn {
+      padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; gap: 6px; border: none;
+    }
+    .view-btn-primary { background: #2563eb; color: white; }
+    .view-btn-outline { background: transparent; color: white; border: 1.5px solid rgba(255,255,255,0.3); }
+    .view-container { max-width: 700px; margin: 40px auto; padding: 0 20px 60px; }
+    .view-error {
+      text-align: center; padding: 80px 20px; color: #64748b;
+      background: white; border-radius: 14px; box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    .view-error i { font-size: 48px; color: #e2e8f0; margin-bottom: 16px; display: block; }
+    .view-error h2 { font-size: 20px; margin-bottom: 8px; }
+    .view-error a { color: #2563eb; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+  <nav class="view-navbar">
+    <a href="index.html" class="view-brand">TR Resume Builder</a>
+    <div class="view-actions">
+      <button class="view-btn view-btn-outline" onclick="window.print()"><i class="fas fa-print"></i> Print / PDF</button>
+      <a href="resume.html" class="view-btn view-btn-primary"><i class="fas fa-edit"></i> Build Yours</a>
+    </div>
+  </nav>
+
+  <div class="view-container">
+    <div id="viewContent">
+      <div class="view-error">
+        <i class="fas fa-spinner fa-spin"></i>
+        <h2>Loading resume...</h2>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const hash = window.location.hash.slice(1);
+
+      if (!hash) {
+        document.getElementById('viewContent').innerHTML = `
+          <div class="view-error">
+            <i class="fas fa-exclamation-circle"></i>
+            <h2>No Resume Found</h2>
+            <p>This link doesn't contain resume data.<br>
+            <a href="resume.html">Create your own resume →</a></p>
+          </div>`;
+        return;
+      }
+
+      try {
+        const json = LZString.decompressFromEncodedURIComponent(hash);
+        const data = JSON.parse(json);
+
+        if (!data) throw new Error('Invalid data');
+
+        // Set up template
+        currentTemplate = data.template || 'modern';
+        currentColor = data.color || '#2a9e77';
+
+        // Build preview element
+        const previewDiv = document.createElement('div');
+        previewDiv.className = `resume-preview template-${currentTemplate}`;
+        previewDiv.style.cssText = `--resume-accent: ${currentColor}; max-width: 680px; margin: 0 auto; box-shadow: 0 8px 32px rgba(0,0,0,0.15); border-radius: 4px;`;
+        previewDiv.innerHTML = buildResumeHTML(data);
+
+        document.getElementById('viewContent').innerHTML = '';
+        document.getElementById('viewContent').appendChild(previewDiv);
+
+        // Update page title
+        const name = [data.personal?.firstname, data.personal?.lastname].filter(Boolean).join(' ');
+        if (name) document.title = `${name} — Resume`;
+
+      } catch (e) {
+        document.getElementById('viewContent').innerHTML = `
+          <div class="view-error">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h2>Could not load resume</h2>
+            <p>The link may be invalid or expired.<br>
+            <a href="resume.html">Create a new resume →</a></p>
+          </div>`;
+      }
+    });
+  </script>
+
+</body>
+</html>
