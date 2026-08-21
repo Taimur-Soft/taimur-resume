@@ -44,6 +44,18 @@
       border-color: #2563eb; color: #2563eb; background: #eff6ff;
       transform: translateY(-1px);
     }
+    .nav-signup {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 9px 20px; color: #7c3aed; font-weight: 600; font-size: 14px;
+      text-decoration: none; border: 1.5px solid #ddd6fe; border-radius: 9px;
+      background: #f5f3ff;
+      transition: border-color 0.15s, background 0.15s, transform 0.15s;
+    }
+    .nav-signup i { font-size: 13px; }
+    .nav-signup:hover {
+      border-color: #7c3aed; background: #ede9fe;
+      transform: translateY(-1px);
+    }
 
     /* Hero */
     .hero {
@@ -136,6 +148,7 @@
     </div>
     <div class="nav-actions">
       <a href="resume.html#signin" class="nav-signin"><i class="fas fa-sign-in-alt"></i> Sign In</a>
+      <a href="resume.html#signup" class="nav-signup"><i class="fas fa-user-plus"></i> Sign Up</a>
       <a href="resume.html" class="nav-cta"><i class="fas fa-rocket"></i> Build Your Resume</a>
     </div>
   </nav>
