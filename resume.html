@@ -29,6 +29,7 @@
         <button onclick="openAuthModal('signin')" class="btn-icon" title="Sign In"><i class="fas fa-sign-in-alt"></i> Sign In</button>
       </div>
       <div id="authSignedIn" class="auth-nav-group" style="display:none">
+        <span id="cloudSyncStatus" class="cloud-sync-status"></span>
         <button onclick="saveToCloud()" class="btn-icon" title="Save to Cloud"><i class="fas fa-cloud-upload-alt"></i> Save to Cloud</button>
         <button onclick="openMyResumes()" class="btn-icon" title="My Resumes"><i class="fas fa-folder"></i> My Resumes</button>
         <span id="authUserEmail" class="auth-user-email"></span>
