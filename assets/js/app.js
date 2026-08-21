@@ -141,6 +141,10 @@ function renderCV() {
   calculateProgress();
   saveToLocalStorage();
   pushHistory();
+
+  // Cloud auto-sync (auth.js) is optional — only push when a viewer is
+  // actually signed in, and never let its absence break the local save path.
+  if (typeof autoSyncToCloud === 'function') autoSyncToCloud();
 }
 
 // ── UNDO / REDO ─────────────────────────────────────────

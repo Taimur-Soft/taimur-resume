@@ -8,8 +8,22 @@
 
 'use strict';
 
+// Which cloud resume row auto-sync writes into. Persisted per-browser so a
+// page reload keeps updating the same row instead of creating a new one
+// every time; cleared on sign out so a different account on the same
+// browser doesn't accidentally write into someone else's row.
+const ACTIVE_CLOUD_ID_KEY = 'tr_active_cloud_resume_id';
+
 let currentUser = null;
 let currentCloudResumeId = null; // the cloud row currently loaded/being edited, if any
+
+function setActiveCloudResumeId(id) {
+  currentCloudResumeId = id;
+  try {
+    if (id) localStorage.setItem(ACTIVE_CLOUD_ID_KEY, id);
+    else localStorage.removeItem(ACTIVE_CLOUD_ID_KEY);
+  } catch (e) { /* localStorage unavailable — auto-sync still works this tab */ }
+}
 
 // ── AUTH STATE ──────────────────────────────────────────
 supabaseClient.auth.onAuthStateChange((_event, session) => {
@@ -33,10 +47,85 @@ function updateAuthUI() {
     signedOut.style.display = 'none';
     signedIn.style.display = 'flex';
     if (emailLabel) emailLabel.textContent = currentUser.email;
+
+    let savedId = null;
+    try { savedId = localStorage.getItem(ACTIVE_CLOUD_ID_KEY); } catch (e) {}
+    currentCloudResumeId = savedId || null;
+    setCloudSyncStatus(currentCloudResumeId ? 'synced' : 'idle');
+
+    // Covers the very first sign-in on this browser: nothing has synced yet,
+    // so push whatever is currently on screen up right away instead of
+    // waiting for the next edit.
+    if (!currentCloudResumeId) autoSyncToCloud();
   } else {
     signedOut.style.display = 'flex';
     signedIn.style.display = 'none';
-    currentCloudResumeId = null;
+    setCloudSyncStatus(null);
+  }
+}
+
+// ── AUTO-SYNC ───────────────────────────────────────────
+// Piggybacks on the same debounced point app.js already uses for
+// localStorage auto-save (see renderCV() -> saveToLocalStorage()), so any
+// edit that triggers a local save also pushes to the cloud when signed in.
+let autoSyncTimer = null;
+function autoSyncToCloud() {
+  if (!currentUser) return;
+  clearTimeout(autoSyncTimer);
+  autoSyncTimer = setTimeout(silentSaveToCloud, 1200);
+}
+
+async function silentSaveToCloud() {
+  if (!currentUser) return;
+
+  const data = collectFormData();
+  const hasData = data.personal.firstname || data.personal.lastname || data.personal.designation;
+  if (!hasData) return; // nothing worth syncing yet
+
+  const name = [data.personal.firstname, data.personal.lastname].filter(Boolean).join(' ') || 'Untitled Resume';
+  setCloudSyncStatus('syncing');
+
+  try {
+    if (currentCloudResumeId) {
+      const { error } = await supabaseClient
+        .from('resumes')
+        .update({ name, data, updated_at: new Date().toISOString() })
+        .eq('id', currentCloudResumeId);
+      if (error) throw error;
+    } else {
+      const { data: inserted, error } = await supabaseClient
+        .from('resumes')
+        .insert({ user_id: currentUser.id, name, data })
+        .select()
+        .single();
+      if (error) throw error;
+      setActiveCloudResumeId(inserted.id);
+    }
+    setCloudSyncStatus('synced');
+  } catch (err) {
+    setCloudSyncStatus('error', err.message);
+  }
+}
+
+function setCloudSyncStatus(state, errorMessage) {
+  const el = document.getElementById('cloudSyncStatus');
+  if (!el) return;
+
+  if (state === 'syncing') {
+    el.innerHTML = '<i class="fas fa-cloud-upload-alt fa-spin"></i> Syncing...';
+    el.className = 'cloud-sync-status';
+  } else if (state === 'synced') {
+    el.innerHTML = '<i class="fas fa-check-circle"></i> Synced';
+    el.className = 'cloud-sync-status';
+  } else if (state === 'error') {
+    el.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Sync failed';
+    el.className = 'cloud-sync-status cloud-sync-status-error';
+    el.title = errorMessage || '';
+  } else if (state === 'idle') {
+    el.innerHTML = '<i class="fas fa-cloud"></i> Not synced yet';
+    el.className = 'cloud-sync-status';
+  } else {
+    el.textContent = '';
   }
 }
 
@@ -55,7 +144,7 @@ async function authSignIn(email, password) {
 
 async function authSignOut() {
   await supabaseClient.auth.signOut();
-  currentCloudResumeId = null;
+  setActiveCloudResumeId(null);
   showToast('✅ Signed out', 'success');
 }
 
@@ -153,6 +242,7 @@ async function saveToCloud() {
   const data = collectFormData();
   const name = [data.personal.firstname, data.personal.lastname].filter(Boolean).join(' ') || 'Untitled Resume';
 
+  setCloudSyncStatus('syncing');
   try {
     if (currentCloudResumeId) {
       const { error } = await supabaseClient
@@ -168,10 +258,12 @@ async function saveToCloud() {
         .select()
         .single();
       if (error) throw error;
-      currentCloudResumeId = inserted.id;
+      setActiveCloudResumeId(inserted.id);
       showToast('✅ Resume saved to cloud!', 'success');
     }
+    setCloudSyncStatus('synced');
   } catch (err) {
+    setCloudSyncStatus('error', err.message);
     showToast('❌ Could not save: ' + err.message, 'error');
   }
 }
@@ -225,8 +317,9 @@ async function loadCloudResume(id) {
       .single();
     if (error) throw error;
 
-    currentCloudResumeId = row.id;
+    setActiveCloudResumeId(row.id);
     restoreFromData(row.data);
+    setCloudSyncStatus('synced');
     closeMyResumesModal();
     showToast('✅ Resume loaded!', 'success');
   } catch (err) {
@@ -239,7 +332,10 @@ async function deleteCloudResume(id) {
   try {
     const { error } = await supabaseClient.from('resumes').delete().eq('id', id);
     if (error) throw error;
-    if (currentCloudResumeId === id) currentCloudResumeId = null;
+    if (currentCloudResumeId === id) {
+      setActiveCloudResumeId(null);
+      setCloudSyncStatus('idle');
+    }
     showToast('✅ Resume deleted', 'success');
     openMyResumes(); // refresh the list
   } catch (err) {
