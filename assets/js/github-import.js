@@ -24,9 +24,12 @@ async function importFromGitHub() {
     }
     const profile = await profileRes.json();
 
-    // Fetch repos (top 30 by stars)
-    const reposRes = await fetch(`https://api.github.com/users/${username}/repos?per_page=30&sort=stars`);
-    const repos = await reposRes.json();
+    // Fetch repos (top 30 by stars). Note: GitHub's API only supports
+    // sort=created|updated|pushed|full_name — there is no "stars" option —
+    // so we fetch by most recently pushed and sort by stargazers client-side.
+    const reposRes = await fetch(`https://api.github.com/users/${username}/repos?per_page=30&sort=pushed`);
+    const repos = (await reposRes.json())
+      .sort((a, b) => (b.stargazers_count || 0) - (a.stargazers_count || 0));
 
     // Populate personal info if fields are empty
     if (profile.name) {

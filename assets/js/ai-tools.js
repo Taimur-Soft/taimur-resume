@@ -149,7 +149,10 @@ Respond in this exact JSON format:
 
 // ── COMBINED: Grammar + Tone ───────────────────────────
 async function checkGrammarAndTone() {
-  const apiKey = localStorage.getItem('geminiApiKey') || document.getElementById('geminiApiKey').value.trim();
+  // Prefer whatever the user currently has typed in the field — falling back
+  // to the previously saved key only if the field is empty. Otherwise typing
+  // a new key without clicking "Save" would silently keep using the old one.
+  const apiKey = document.getElementById('geminiApiKey').value.trim() || localStorage.getItem('geminiApiKey') || '';
   const resumeText = getResumeText();
 
   if (!resumeText || resumeText.trim().length < 50) {

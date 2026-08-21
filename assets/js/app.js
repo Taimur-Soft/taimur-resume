@@ -832,7 +832,7 @@ function removeRepeaterItem(btn) {
 }
 
 function toggleCurrent(checkbox) {
-  const endDate = checkbox.closest('.form-elem').previousElementSibling.querySelector('.exp_end_date');
+  const endDate = checkbox.closest('.form-elem').querySelector('.exp_end_date');
   if (endDate) endDate.disabled = checkbox.checked;
   generateCV();
 }
