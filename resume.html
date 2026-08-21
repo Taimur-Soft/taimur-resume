@@ -25,6 +25,15 @@
       </div>
     </div>
     <div class="nav-actions">
+      <div id="authSignedOut" class="auth-nav-group">
+        <button onclick="openAuthModal('signin')" class="btn-icon" title="Sign In"><i class="fas fa-sign-in-alt"></i> Sign In</button>
+      </div>
+      <div id="authSignedIn" class="auth-nav-group" style="display:none">
+        <button onclick="saveToCloud()" class="btn-icon" title="Save to Cloud"><i class="fas fa-cloud-upload-alt"></i> Save to Cloud</button>
+        <button onclick="openMyResumes()" class="btn-icon" title="My Resumes"><i class="fas fa-folder"></i> My Resumes</button>
+        <span id="authUserEmail" class="auth-user-email"></span>
+        <button onclick="authSignOut()" class="btn-icon" title="Sign Out"><i class="fas fa-sign-out-alt"></i></button>
+      </div>
       <span id="saveStatus" class="save-status"><i class="fas fa-check-circle"></i> Saved</span>
       <button onclick="undo()" id="undoBtn" class="btn-icon" title="Undo" disabled>
         <i class="fas fa-rotate-left"></i>
@@ -376,16 +385,51 @@
   <!-- Hidden JSON file input -->
   <input type="file" id="jsonFileInput" accept=".json" style="display:none" onchange="loadJSONFile(event)">
 
+  <!-- Auth Modal (Sign In / Sign Up) -->
+  <div id="authModal" class="share-modal" style="display:none">
+    <div class="share-modal-content">
+      <button onclick="closeAuthModal()" class="btn-close">×</button>
+      <h4 id="authModalTitle"><i class="fas fa-user"></i> Sign In</h4>
+      <form id="authForm" onsubmit="handleAuthSubmit(event)">
+        <div class="form-elem" style="margin-bottom:12px">
+          <label>Email</label>
+          <input type="email" id="authEmail" class="form-input" required placeholder="you@example.com">
+        </div>
+        <div class="form-elem" style="margin-bottom:16px">
+          <label>Password</label>
+          <input type="password" id="authPassword" class="form-input" required minlength="6" placeholder="At least 6 characters">
+        </div>
+        <div id="authError" class="field-error-msg" style="display:none;margin-bottom:12px"></div>
+        <button type="submit" id="authSubmitBtn" class="btn-primary" style="width:100%;justify-content:center">Sign In</button>
+      </form>
+      <p id="authSwitchText" class="hint-text" style="text-align:center;margin-top:16px">
+        Don't have an account? <a href="#" onclick="switchAuthMode(); return false;">Sign Up</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- My Resumes Modal (cloud save list) -->
+  <div id="myResumesModal" class="share-modal" style="display:none">
+    <div class="share-modal-content" style="max-width:480px">
+      <button onclick="closeMyResumesModal()" class="btn-close">×</button>
+      <h4><i class="fas fa-cloud"></i> My Saved Resumes</h4>
+      <div id="myResumesList" style="margin-top:16px;max-height:400px;overflow-y:auto"></div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/js/github-import.js"></script>
   <script src="assets/js/ai-tools.js"></script>
   <script src="assets/js/share.js"></script>
   <script src="assets/js/pdf-export.js"></script>
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/auth.js"></script>
   <script src="assets/js/app.js"></script>
 
 </body>
