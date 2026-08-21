@@ -438,6 +438,23 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 .rv-pro-skill > div { height: 4px; background: #e2e8f0; border-radius: 99px; margin-top: 3px; }
 .rv-pro-skill > div > div { height: 100%; background: var(--resume-accent); border-radius: 99px; }
 
+/* ── AUTH & CLOUD RESUMES ────────────────────────────── */
+.auth-nav-group { display: flex; align-items: center; gap: 8px; }
+.auth-user-email {
+  font-size: 12px; color: var(--text-muted); font-weight: 500;
+  max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.share-modal-content form { text-align: left; }
+.my-resume-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px; border: 1px solid var(--border); border-radius: 8px;
+  margin-bottom: 8px; gap: 12px;
+}
+.my-resume-info { display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+.my-resume-info strong { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.my-resume-info span { font-size: 11px; color: var(--text-muted); }
+.my-resume-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
 /* ── SHARE MODAL ─────────────────────────────────────── */
 .share-modal {
   position: fixed; inset: 0; z-index: 200;
