@@ -31,6 +31,19 @@
       text-decoration: none; transition: background 0.15s;
     }
     .nav-cta:hover { background: #1d4ed8; }
+    .nav-actions { display: flex; align-items: center; gap: 14px; }
+    .nav-signin {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 9px 20px; color: #334155; font-weight: 600; font-size: 14px;
+      text-decoration: none; border: 1.5px solid #e2e8f0; border-radius: 9px;
+      background: white;
+      transition: border-color 0.15s, color 0.15s, background 0.15s, transform 0.15s;
+    }
+    .nav-signin i { font-size: 13px; }
+    .nav-signin:hover {
+      border-color: #2563eb; color: #2563eb; background: #eff6ff;
+      transform: translateY(-1px);
+    }
 
     /* Hero */
     .hero {
@@ -121,7 +134,10 @@
       <div class="logo-icon">TR</div>
       <span class="logo-text">Taimur <em>Resume</em></span>
     </div>
-    <a href="resume.html" class="nav-cta"><i class="fas fa-rocket"></i> Build Your Resume</a>
+    <div class="nav-actions">
+      <a href="resume.html#signin" class="nav-signin"><i class="fas fa-sign-in-alt"></i> Sign In</a>
+      <a href="resume.html" class="nav-cta"><i class="fas fa-rocket"></i> Build Your Resume</a>
+    </div>
   </nav>
 
   <!-- Hero -->
