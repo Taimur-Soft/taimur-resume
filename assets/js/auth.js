@@ -344,8 +344,14 @@ async function deleteCloudResume(id) {
 }
 
 // Close modals on backdrop click, same behavior as the share modal.
-document.addEventListener('DOMContentLoaded', () => {
-  initAuth();
+document.addEventListener('DOMContentLoaded', async () => {
+  await initAuth();
+  // Homepage "Sign In" link points here as resume.html#signin —
+  // open the modal automatically so it's a one-click flow from the landing page.
+  // Skip it if the visitor is already signed in.
+  if (window.location.hash === '#signin' && !currentUser) {
+    openAuthModal('signin');
+  }
   ['authModal', 'myResumesModal'].forEach(id => {
     const modal = document.getElementById(id);
     if (modal) {
