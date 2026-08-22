@@ -32,7 +32,10 @@
         <span id="cloudSyncStatus" class="cloud-sync-status"></span>
         <button onclick="saveToCloud()" class="btn-icon" title="Save to Cloud"><i class="fas fa-cloud-upload-alt"></i> Save to Cloud</button>
         <button onclick="openMyResumes()" class="btn-icon" title="My Resumes"><i class="fas fa-folder"></i> My Resumes</button>
-        <span id="authUserEmail" class="auth-user-email"></span>
+        <button onclick="openAccountModal()" class="auth-account-btn" title="Account Settings">
+          <span id="authUserAvatar" class="auth-user-avatar"><i class="fas fa-user"></i></span>
+          <span id="authUserEmail" class="auth-user-email"></span>
+        </button>
         <button onclick="authSignOut()" class="btn-icon" title="Sign Out"><i class="fas fa-sign-out-alt"></i></button>
       </div>
       <span id="saveStatus" class="save-status"><i class="fas fa-check-circle"></i> Saved</span>
@@ -456,6 +459,60 @@
       <button onclick="closeMyResumesModal()" class="btn-close">×</button>
       <h4><i class="fas fa-cloud"></i> My Saved Resumes</h4>
       <div id="myResumesList" style="margin-top:16px;max-height:400px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- Account Settings Modal -->
+  <div id="accountModal" class="share-modal" style="display:none">
+    <div class="share-modal-content" style="max-width:440px">
+      <button onclick="closeAccountModal()" class="btn-close">×</button>
+      <h4><i class="fas fa-user-gear"></i> Account Settings</h4>
+
+      <form onsubmit="saveAccountProfile(event)">
+        <div class="account-avatar-row">
+          <span id="accountAvatarPreview" class="account-avatar-preview"><i class="fas fa-user"></i></span>
+          <div>
+            <label for="accountAvatarInput" class="btn-icon account-avatar-btn">
+              <i class="fas fa-camera"></i> Change Photo
+            </label>
+            <input type="file" id="accountAvatarInput" accept="image/*" style="display:none" onchange="previewAccountAvatar(event)">
+            <p class="hint-text" style="margin-top:6px">JPG or PNG, up to 2MB</p>
+          </div>
+        </div>
+
+        <div class="form-elem" style="margin:16px 0 12px">
+          <label>Email</label>
+          <div id="accountEmail" class="account-readonly-field"></div>
+        </div>
+        <div class="form-elem" style="margin-bottom:12px">
+          <label>Full Name</label>
+          <input type="text" id="accountFullName" class="form-input" placeholder="Your name">
+        </div>
+        <div class="form-elem" style="margin-bottom:16px">
+          <label>Mobile Number</label>
+          <input type="tel" id="accountPhone" class="form-input" placeholder="e.g. +880 1234 567890">
+        </div>
+        <div id="accountProfileError" class="field-error-msg" style="display:none;margin-bottom:12px"></div>
+        <div id="accountProfileSuccess" class="account-success-msg" style="display:none;margin-bottom:12px"></div>
+        <button type="submit" id="accountProfileSaveBtn" class="btn-primary" style="width:100%;justify-content:center">Save Profile</button>
+      </form>
+
+      <hr class="account-divider">
+
+      <h4 style="font-size:14px"><i class="fas fa-lock"></i> Change Password</h4>
+      <form onsubmit="changeAccountPassword(event)">
+        <div class="form-elem" style="margin:12px 0">
+          <label>New Password</label>
+          <input type="password" id="accountNewPassword" class="form-input" minlength="6" placeholder="At least 6 characters">
+        </div>
+        <div class="form-elem" style="margin-bottom:16px">
+          <label>Confirm New Password</label>
+          <input type="password" id="accountConfirmPassword" class="form-input" minlength="6" placeholder="Repeat new password">
+        </div>
+        <div id="accountPasswordError" class="field-error-msg" style="display:none;margin-bottom:12px"></div>
+        <div id="accountPasswordSuccess" class="account-success-msg" style="display:none;margin-bottom:12px"></div>
+        <button type="submit" id="accountPasswordSaveBtn" class="btn-icon" style="width:100%;justify-content:center">Update Password</button>
+      </form>
     </div>
   </div>
 
