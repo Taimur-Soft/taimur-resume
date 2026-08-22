@@ -1,6 +1,6 @@
 // ======================================================
 // Taimur Rahman Resume Builder — Main App
-// Features: Live Preview, 5 Templates, Drag & Drop,
+// Features: Live Preview, 15 Europass-format Templates, Drag & Drop,
 //           Wizard, JSON Import/Export, Auto-Save,
 //           Custom Sections, Progress Tracker
 // ======================================================
@@ -8,7 +8,7 @@
 'use strict';
 
 // ── STATE ──────────────────────────────────────────────
-let currentTemplate = 'modern';
+let currentTemplate = 'aurora';
 let currentColor = '#2a9e77';
 let customSections = [];
 let sectionOrder = ['experience', 'education', 'skills', 'projects', 'achievements'];
@@ -412,301 +412,180 @@ function buildResumeHTML(rawData) {
     return `${months[idx]} ${match[1]}`;
   };
 
-  // ---- MODERN TEMPLATE ----
-  if (currentTemplate === 'modern' || currentTemplate === 'creative') {
-    return `
-      <div class="rv-modern">
-        <div class="rv-left">
-          ${personal.image ? `<div class="rv-photo"><img src="${personal.image}" alt="Photo"></div>` : ''}
-          <div class="rv-name-block">
-            <h1>${fullName || 'Your Name'}</h1>
-            <p class="rv-designation">${personal.designation || 'Your Title'}</p>
-          </div>
-          <div class="rv-section">
-            <h3>CONTACT</h3>
-            ${personal.phoneno ? `<div class="rv-contact-item">📞 ${personal.phoneno}</div>` : ''}
-            ${personal.email ? `<div class="rv-contact-item">✉️ ${personal.email}</div>` : ''}
-            ${personal.address ? `<div class="rv-contact-item">📍 ${personal.address}</div>` : ''}
-            ${personal.website ? `<div class="rv-contact-item">🌐 ${personal.website}</div>` : ''}
-          </div>
-          ${skills.length > 0 ? `
-          <div class="rv-section">
-            <h3>SKILLS</h3>
-            ${skills.map(s => `
-              <div class="rv-skill">
-                <span>${s.skill}</span>
-                <div class="rv-skill-bar"><div class="rv-skill-fill" style="width:${s.level}%"></div></div>
-              </div>`).join('')}
-          </div>` : ''}
-        </div>
-        <div class="rv-right">
-          ${personal.summary ? `
-          <div class="rv-section">
-            <h3>PROFILE</h3>
-            <p>${personal.summary}</p>
-          </div>` : ''}
-          ${experiences.filter(e => e.title || e.organization).length > 0 ? `
-          <div class="rv-section">
-            <h3>EXPERIENCE</h3>
-            ${experiences.filter(e => e.title || e.organization).map(e => `
-              <div class="rv-item">
-                <div class="rv-item-header">
-                  <strong>${e.title}</strong>
-                  <span class="rv-date">${formatDate(e.startDate)} ${e.startDate ? '–' : ''} ${e.current ? 'Present' : formatDate(e.endDate)}</span>
-                </div>
-                <div class="rv-item-sub">${e.organization}${e.location ? ', ' + e.location : ''}</div>
-                ${e.description ? `<p class="rv-item-desc">${e.description}</p>` : ''}
-              </div>`).join('')}
-          </div>` : ''}
-          ${educations.filter(e => e.school || e.degree).length > 0 ? `
-          <div class="rv-section">
-            <h3>EDUCATION</h3>
-            ${educations.filter(e => e.school || e.degree).map(e => `
-              <div class="rv-item">
-                <div class="rv-item-header">
-                  <strong>${e.degree}</strong>
-                  <span class="rv-date">${formatDate(e.startDate)} ${e.startDate ? '–' : ''} ${formatDate(e.endDate)}</span>
-                </div>
-                <div class="rv-item-sub">${e.school}${e.city ? ', ' + e.city : ''}</div>
-                ${e.description ? `<p class="rv-item-desc">${e.description}</p>` : ''}
-              </div>`).join('')}
-          </div>` : ''}
-          ${projects.filter(p => p.title).length > 0 ? `
-          <div class="rv-section">
-            <h3>PROJECTS</h3>
-            ${projects.filter(p => p.title).map(p => `
-              <div class="rv-item">
-                <div class="rv-item-header">
-                  <strong>${p.title}</strong>
-                  ${p.link ? `<a href="${p.link}" class="rv-link" target="_blank">↗ Link</a>` : ''}
-                </div>
-                ${p.description ? `<p class="rv-item-desc">${p.description}</p>` : ''}
-              </div>`).join('')}
-          </div>` : ''}
-          ${achievements.filter(a => a.title).length > 0 ? `
-          <div class="rv-section">
-            <h3>ACHIEVEMENTS</h3>
-            ${achievements.filter(a => a.title).map(a => `
-              <div class="rv-item">
-                <strong>${a.title}</strong>
-                ${a.description ? `<p class="rv-item-desc">${a.description}</p>` : ''}
-              </div>`).join('')}
-          </div>` : ''}
-          ${customSections.map(cs => cs.items.filter(i => i.title).length > 0 ? `
-          <div class="rv-section">
-            <h3>${cs.name.toUpperCase()}</h3>
-            ${cs.items.filter(i => i.title).map(i => `
-              <div class="rv-item">
-                <strong>${i.title}</strong>
-                ${i.description ? `<p class="rv-item-desc">${i.description}</p>` : ''}
-              </div>`).join('')}
-          </div>` : '').join('')}
-        </div>
-      </div>`;
-  }
+  // ---- EUROPASS TEMPLATE SYSTEM ----
+  // All 15 templates share the same EU-recognized section structure
+  // (Personal info → About Me → Work Experience → Education and Training →
+  // Personal Skills → Projects → Achievements → custom sections). Only the
+  // layout (sidebar / banner / timeline) and the visual theme differ, so the
+  // markup below is built once per layout and skinned entirely through CSS
+  // (see .theme-* variables in main.css) rather than duplicated 15 times.
+  const EUROPASS_TEMPLATES = {
+    aurora:   { layout: 'sidebar',  theme: 'aurora' },
+    emerald:  { layout: 'sidebar',  theme: 'emerald' },
+    slate:    { layout: 'sidebar',  theme: 'slate' },
+    coral:    { layout: 'sidebar',  theme: 'coral' },
+    ivory:    { layout: 'sidebar',  theme: 'ivory' },
+    sunrise:  { layout: 'banner',   theme: 'sunrise' },
+    horizon:  { layout: 'banner',   theme: 'horizon' },
+    blossom:  { layout: 'banner',   theme: 'blossom' },
+    nordic:   { layout: 'banner',   theme: 'nordic' },
+    velvet:   { layout: 'banner',   theme: 'velvet' },
+    pulse:    { layout: 'timeline', theme: 'pulse' },
+    meridian: { layout: 'timeline', theme: 'meridian' },
+    zenith:   { layout: 'timeline', theme: 'zenith' },
+    canvas:   { layout: 'timeline', theme: 'canvas' },
+    quartz:   { layout: 'timeline', theme: 'quartz' }
+  };
 
-  // ---- CLASSIC TEMPLATE ----
-  if (currentTemplate === 'classic') {
-    return `
-      <div class="rv-classic">
-        <div class="rv-classic-header">
-          ${personal.image ? `<img src="${personal.image}" class="rv-classic-photo" alt="Photo">` : ''}
-          <div>
-            <h1>${fullName || 'Your Name'}</h1>
-            <p class="rv-classic-title">${personal.designation || ''}</p>
-            <div class="rv-classic-contacts">
-              ${[personal.email, personal.phoneno, personal.address, personal.website].filter(Boolean).join(' · ')}
-            </div>
-          </div>
-        </div>
-        ${personal.summary ? `<div class="rv-classic-section"><p class="rv-classic-summary">${personal.summary}</p></div>` : ''}
-        ${experiences.filter(e => e.title).length > 0 ? `
-        <div class="rv-classic-section">
-          <h3>WORK EXPERIENCE</h3><hr>
-          ${experiences.filter(e => e.title).map(e => `
-            <div class="rv-classic-item">
-              <div class="rv-classic-item-top">
-                <span><strong>${e.title}</strong> — ${e.organization}</span>
-                <span class="rv-classic-date">${formatDate(e.startDate)} – ${e.current ? 'Present' : formatDate(e.endDate)}</span>
-              </div>
-              ${e.location ? `<div class="rv-classic-sub">${e.location}</div>` : ''}
-              ${e.description ? `<p>${e.description}</p>` : ''}
-            </div>`).join('')}
-        </div>` : ''}
-        ${educations.filter(e => e.school).length > 0 ? `
-        <div class="rv-classic-section">
-          <h3>EDUCATION</h3><hr>
-          ${educations.filter(e => e.school).map(e => `
-            <div class="rv-classic-item">
-              <div class="rv-classic-item-top">
-                <span><strong>${e.degree}</strong> — ${e.school}</span>
-                <span class="rv-classic-date">${formatDate(e.startDate)} – ${formatDate(e.endDate)}</span>
-              </div>
-            </div>`).join('')}
-        </div>` : ''}
-        ${skills.length > 0 ? `
-        <div class="rv-classic-section">
-          <h3>SKILLS</h3><hr>
-          <p>${skills.map(s => s.skill).join(' · ')}</p>
-        </div>` : ''}
-        ${projects.filter(p => p.title).length > 0 ? `
-        <div class="rv-classic-section">
-          <h3>PROJECTS</h3><hr>
-          ${projects.filter(p => p.title).map(p => `
-            <div class="rv-classic-item">
-              <strong>${p.title}</strong>${p.link ? ` — <a href="${p.link}">${p.link}</a>` : ''}
-              ${p.description ? `<p>${p.description}</p>` : ''}
-            </div>`).join('')}
-        </div>` : ''}
-        ${achievements.filter(a => a.title).length > 0 ? `
-        <div class="rv-classic-section">
-          <h3>ACHIEVEMENTS</h3><hr>
-          ${achievements.filter(a => a.title).map(a => `
-            <div class="rv-classic-item"><strong>${a.title}</strong> — ${a.description}</div>`).join('')}
-        </div>` : ''}
-      </div>`;
-  }
+  const cfg = EUROPASS_TEMPLATES[currentTemplate] || EUROPASS_TEMPLATES.aurora;
 
-  // ---- MINIMAL TEMPLATE ----
-  if (currentTemplate === 'minimal') {
+  const contactList = [
+    personal.phoneno ? { icon: 'fa-phone', text: personal.phoneno } : null,
+    personal.email ? { icon: 'fa-envelope', text: personal.email } : null,
+    personal.address ? { icon: 'fa-location-dot', text: personal.address } : null,
+    personal.website ? { icon: 'fa-globe', text: personal.website } : null
+  ].filter(Boolean);
+
+  const euItem = ({ title, sub, date, desc, link }) => `
+    <div class="eu-item">
+      <div class="eu-item-head">
+        <strong>${title || ''}</strong>
+        ${date ? `<span class="eu-date">${date}</span>` : ''}
+      </div>
+      ${sub ? `<div class="eu-item-sub">${sub}</div>` : ''}
+      ${link ? `<a href="${link}" class="eu-link" target="_blank" rel="noopener">↗ ${link}</a>` : ''}
+      ${desc ? `<p class="eu-item-desc">${desc}</p>` : ''}
+    </div>`;
+
+  const expItems = experiences.filter(e => e.title || e.organization);
+  const eduItems = educations.filter(e => e.school || e.degree);
+  const projItems = projects.filter(p => p.title);
+  const achItems = achievements.filter(a => a.title);
+
+  const workExperienceHTML = expItems.length > 0 ? `
+    <div class="eu-section">
+      <h3><i class="fas fa-briefcase"></i> Work Experience</h3>
+      ${expItems.map(e => euItem({
+        title: e.title,
+        sub: `${e.organization || ''}${e.location ? ', ' + e.location : ''}`,
+        date: `${formatDate(e.startDate)} ${e.startDate ? '–' : ''} ${e.current ? 'Present' : formatDate(e.endDate)}`,
+        desc: e.description
+      })).join('')}
+    </div>` : '';
+
+  const educationHTML = eduItems.length > 0 ? `
+    <div class="eu-section">
+      <h3><i class="fas fa-graduation-cap"></i> Education and Training</h3>
+      ${eduItems.map(e => euItem({
+        title: e.degree,
+        sub: `${e.school || ''}${e.city ? ', ' + e.city : ''}`,
+        date: `${formatDate(e.startDate)} ${e.startDate ? '–' : ''} ${formatDate(e.endDate)}`,
+        desc: e.description
+      })).join('')}
+    </div>` : '';
+
+  const projectsHTML = projItems.length > 0 ? `
+    <div class="eu-section">
+      <h3><i class="fas fa-diagram-project"></i> Projects</h3>
+      ${projItems.map(p => euItem({ title: p.title, link: p.link, desc: p.description })).join('')}
+    </div>` : '';
+
+  const achievementsHTML = achItems.length > 0 ? `
+    <div class="eu-section">
+      <h3><i class="fas fa-trophy"></i> Achievements</h3>
+      ${achItems.map(a => euItem({ title: a.title, desc: a.description })).join('')}
+    </div>` : '';
+
+  const customHTML = customSections.map(cs => cs.items.filter(i => i.title).length > 0 ? `
+    <div class="eu-section">
+      <h3><i class="fas fa-star"></i> ${cs.name}</h3>
+      ${cs.items.filter(i => i.title).map(i => euItem({ title: i.title, desc: i.description })).join('')}
+    </div>` : '').join('');
+
+  const aboutMeHTML = personal.summary ? `
+    <div class="eu-section">
+      <h3><i class="fas fa-user"></i> About Me</h3>
+      <p class="eu-about-text">${personal.summary}</p>
+    </div>` : '';
+
+  const skillsBarsHTML = skills.length > 0 ? `
+    <div class="eu-section">
+      <h3><i class="fas fa-layer-group"></i> Personal Skills</h3>
+      ${skills.map(s => `
+        <div class="eu-skill">
+          <span>${s.skill}</span>
+          <div class="eu-skill-bar"><div class="eu-skill-fill" style="width:${s.level}%"></div></div>
+        </div>`).join('')}
+    </div>` : '';
+
+  const skillsTagsHTML = skills.length > 0 ? `
+    <div class="eu-section">
+      <h3><i class="fas fa-layer-group"></i> Personal Skills</h3>
+      <div class="eu-skill-tags">${skills.map(s => `<span class="eu-skill-tag">${s.skill}</span>`).join('')}</div>
+    </div>` : '';
+
+  const contactHTML = contactList.map(c => `<div class="eu-contact-item"><i class="fas ${c.icon}"></i><span>${c.text}</span></div>`).join('');
+  const contactInlineHTML = contactList.map(c => `<span class="eu-contact-inline"><i class="fas ${c.icon}"></i>${c.text}</span>`).join('');
+  const photoHTML = personal.image ? `<img src="${personal.image}" class="eu-photo" alt="Photo">` : '<div class="eu-photo eu-photo-placeholder"><i class="fas fa-user"></i></div>';
+
+  // ── LAYOUT: SIDEBAR (Aurora, Emerald, Slate, Coral, Ivory) ──
+  if (cfg.layout === 'sidebar') {
     return `
-      <div class="rv-minimal">
-        <div class="rv-minimal-header">
+      <div class="rv-eu rv-eu-sidebar theme-${cfg.theme}">
+        <div class="eu-side">
+          ${photoHTML}
           <h1>${fullName || 'Your Name'}</h1>
-          <div class="rv-minimal-sub">
-            ${personal.designation ? `<span>${personal.designation}</span>` : ''}
-            ${personal.email ? `<span>${personal.email}</span>` : ''}
-            ${personal.phoneno ? `<span>${personal.phoneno}</span>` : ''}
+          <p class="eu-designation">${personal.designation || 'Your Title'}</p>
+          <div class="eu-section eu-side-section">
+            <h3><i class="fas fa-address-card"></i> Contact</h3>
+            ${contactHTML}
           </div>
+          ${skillsBarsHTML.replace('eu-section', 'eu-section eu-side-section')}
         </div>
-        ${personal.summary ? `<p class="rv-minimal-summary">${personal.summary}</p>` : ''}
-        ${experiences.filter(e => e.title).length > 0 ? `
-        <div class="rv-minimal-section">
-          <h3>Experience</h3>
-          ${experiences.filter(e => e.title).map(e => `
-            <div class="rv-minimal-item">
-              <div class="rv-minimal-row">
-                <strong>${e.title}, ${e.organization}</strong>
-                <span>${formatDate(e.startDate)} – ${e.current ? 'Present' : formatDate(e.endDate)}</span>
-              </div>
-              ${e.description ? `<p>${e.description}</p>` : ''}
-            </div>`).join('')}
-        </div>` : ''}
-        ${educations.filter(e => e.school).length > 0 ? `
-        <div class="rv-minimal-section">
-          <h3>Education</h3>
-          ${educations.filter(e => e.school).map(e => `
-            <div class="rv-minimal-item">
-              <div class="rv-minimal-row">
-                <strong>${e.degree}</strong>
-                <span>${formatDate(e.startDate)} – ${formatDate(e.endDate)}</span>
-              </div>
-              <span class="rv-minimal-dim">${e.school}</span>
-            </div>`).join('')}
-        </div>` : ''}
-        ${skills.length > 0 ? `
-        <div class="rv-minimal-section">
-          <h3>Skills</h3>
-          <div class="rv-minimal-skills">${skills.map(s => `<span class="rv-minimal-skill-tag">${s.skill}</span>`).join('')}</div>
-        </div>` : ''}
-        ${projects.filter(p => p.title).length > 0 ? `
-        <div class="rv-minimal-section">
-          <h3>Projects</h3>
-          ${projects.filter(p => p.title).map(p => `
-            <div class="rv-minimal-item">
-              <strong>${p.title}</strong>${p.link ? ` <a href="${p.link}" class="rv-link" target="_blank">↗</a>` : ''}
-              ${p.description ? `<p>${p.description}</p>` : ''}
-            </div>`).join('')}
-        </div>` : ''}
-        ${achievements.filter(a => a.title).length > 0 ? `
-        <div class="rv-minimal-section">
-          <h3>Achievements</h3>
-          ${achievements.filter(a => a.title).map(a => `<div class="rv-minimal-item"><strong>${a.title}</strong> — ${a.description}</div>`).join('')}
-        </div>` : ''}
+        <div class="eu-main">
+          ${aboutMeHTML}${workExperienceHTML}${educationHTML}${projectsHTML}${achievementsHTML}${customHTML}
+        </div>
       </div>`;
   }
 
-  // ---- PROFESSIONAL TEMPLATE ----
-  if (currentTemplate === 'professional') {
+  // ── LAYOUT: BANNER (Sunrise, Horizon, Blossom, Nordic, Velvet) ──
+  if (cfg.layout === 'banner') {
     return `
-      <div class="rv-professional">
-        <div class="rv-pro-header">
-          ${personal.image ? `<img src="${personal.image}" class="rv-pro-photo" alt="Photo">` : ''}
-          <div class="rv-pro-header-text">
+      <div class="rv-eu rv-eu-banner theme-${cfg.theme}">
+        <div class="eu-banner">
+          ${photoHTML}
+          <div class="eu-banner-text">
             <h1>${fullName || 'Your Name'}</h1>
-            <h2>${personal.designation || ''}</h2>
+            <p class="eu-designation">${personal.designation || 'Your Title'}</p>
           </div>
         </div>
-        <div class="rv-pro-contact-bar">
-          ${[
-            personal.email ? `✉ ${personal.email}` : '',
-            personal.phoneno ? `☎ ${personal.phoneno}` : '',
-            personal.address ? `⊙ ${personal.address}` : '',
-            personal.website ? `⊕ ${personal.website}` : ''
-          ].filter(Boolean).join('  |  ')}
-        </div>
-        <div class="rv-pro-body">
-          <div class="rv-pro-main">
-            ${personal.summary ? `
-            <div class="rv-pro-section">
-              <h3>PROFESSIONAL SUMMARY</h3>
-              <p>${personal.summary}</p>
-            </div>` : ''}
-            ${experiences.filter(e => e.title).length > 0 ? `
-            <div class="rv-pro-section">
-              <h3>WORK EXPERIENCE</h3>
-              ${experiences.filter(e => e.title).map(e => `
-                <div class="rv-pro-item">
-                  <div class="rv-pro-item-title">
-                    <strong>${e.title}</strong>
-                    <span>${formatDate(e.startDate)} – ${e.current ? 'Present' : formatDate(e.endDate)}</span>
-                  </div>
-                  <div class="rv-pro-item-sub">${e.organization}${e.location ? ' · ' + e.location : ''}</div>
-                  ${e.description ? `<p>${e.description}</p>` : ''}
-                </div>`).join('')}
-            </div>` : ''}
-            ${projects.filter(p => p.title).length > 0 ? `
-            <div class="rv-pro-section">
-              <h3>PROJECTS</h3>
-              ${projects.filter(p => p.title).map(p => `
-                <div class="rv-pro-item">
-                  <strong>${p.title}</strong>${p.link ? ` — <a href="${p.link}" class="rv-link">${p.link}</a>` : ''}
-                  ${p.description ? `<p>${p.description}</p>` : ''}
-                </div>`).join('')}
-            </div>` : ''}
+        <div class="eu-contact-bar">${contactInlineHTML}</div>
+        <div class="eu-body">
+          <div class="eu-main">
+            ${aboutMeHTML}${workExperienceHTML}${projectsHTML}
           </div>
-          <div class="rv-pro-sidebar">
-            ${educations.filter(e => e.school).length > 0 ? `
-            <div class="rv-pro-section">
-              <h3>EDUCATION</h3>
-              ${educations.filter(e => e.school).map(e => `
-                <div class="rv-pro-item">
-                  <strong>${e.degree}</strong>
-                  <div>${e.school}</div>
-                  <div class="rv-pro-date">${formatDate(e.startDate)} – ${formatDate(e.endDate)}</div>
-                </div>`).join('')}
-            </div>` : ''}
-            ${skills.length > 0 ? `
-            <div class="rv-pro-section">
-              <h3>SKILLS</h3>
-              ${skills.map(s => `
-                <div class="rv-pro-skill">
-                  <span>${s.skill}</span>
-                  <div class="rv-pro-skill-bar"><div style="width:${s.level}%"></div></div>
-                </div>`).join('')}
-            </div>` : ''}
-            ${achievements.filter(a => a.title).length > 0 ? `
-            <div class="rv-pro-section">
-              <h3>ACHIEVEMENTS</h3>
-              ${achievements.filter(a => a.title).map(a => `
-                <div class="rv-pro-item">• <strong>${a.title}</strong>${a.description ? ': ' + a.description : ''}</div>`).join('')}
-            </div>` : ''}
+          <div class="eu-side-col">
+            ${educationHTML}${skillsBarsHTML}${achievementsHTML}${customHTML}
           </div>
         </div>
       </div>`;
   }
 
-  return '<div style="padding:20px;color:#666">Select a template above</div>';
+  // ── LAYOUT: TIMELINE (Pulse, Meridian, Zenith, Canvas, Quartz) ──
+  return `
+    <div class="rv-eu rv-eu-timeline theme-${cfg.theme}">
+      <div class="eu-tl-header">
+        ${photoHTML}
+        <div>
+          <h1>${fullName || 'Your Name'}</h1>
+          <p class="eu-designation">${personal.designation || 'Your Title'}</p>
+          <div class="eu-contact-row">${contactInlineHTML}</div>
+        </div>
+      </div>
+      ${aboutMeHTML}
+      <div class="eu-tl-track">${workExperienceHTML}${educationHTML}</div>
+      ${skillsTagsHTML}${projectsHTML}${achievementsHTML}${customHTML}
+    </div>`;
 }
 
 // ── REPEATER ITEMS ─────────────────────────────────────
