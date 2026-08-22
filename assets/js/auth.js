@@ -46,7 +46,12 @@ function updateAuthUI() {
   if (currentUser) {
     signedOut.style.display = 'none';
     signedIn.style.display = 'flex';
-    if (emailLabel) emailLabel.textContent = currentUser.email;
+    const displayName = currentUser.user_metadata?.full_name;
+    if (emailLabel) {
+      emailLabel.textContent = displayName || currentUser.email;
+      emailLabel.title = currentUser.email;
+    }
+    updateNavAvatar();
 
     let savedId = null;
     try { savedId = localStorage.getItem(ACTIVE_CLOUD_ID_KEY); } catch (e) {}
@@ -146,6 +151,150 @@ async function authSignOut() {
   await supabaseClient.auth.signOut();
   setActiveCloudResumeId(null);
   showToast('✅ Signed out', 'success');
+}
+
+// ── NAV AVATAR ──────────────────────────────────────────
+function updateNavAvatar() {
+  const el = document.getElementById('authUserAvatar');
+  if (!el) return;
+  const url = currentUser?.user_metadata?.avatar_url;
+  el.innerHTML = url ? `<img src="${url}" alt="Avatar">` : '<i class="fas fa-user"></i>';
+}
+
+// ── ACCOUNT SETTINGS MODAL ──────────────────────────────
+// Lets a signed-in user update their display name, phone number, and
+// profile picture (stored in Supabase's per-user metadata — no extra
+// database table needed), plus change their password. All writes go
+// through supabaseClient.auth.updateUser, which only ever touches the
+// currently-authenticated user's own account.
+let pendingAvatarFile = null;
+
+function openAccountModal() {
+  if (!currentUser) return;
+  pendingAvatarFile = null;
+  document.getElementById('accountEmail').textContent = currentUser.email;
+  document.getElementById('accountFullName').value = currentUser.user_metadata?.full_name || '';
+  document.getElementById('accountPhone').value = currentUser.user_metadata?.phone || '';
+  document.getElementById('accountNewPassword').value = '';
+  document.getElementById('accountConfirmPassword').value = '';
+  const preview = document.getElementById('accountAvatarPreview');
+  const url = currentUser.user_metadata?.avatar_url;
+  preview.innerHTML = url ? `<img src="${url}" alt="Avatar">` : '<i class="fas fa-user"></i>';
+  hideAccountMessages();
+  document.getElementById('accountModal').style.display = 'flex';
+}
+
+function closeAccountModal() {
+  document.getElementById('accountModal').style.display = 'none';
+}
+
+function hideAccountMessages() {
+  ['accountProfileError', 'accountProfileSuccess', 'accountPasswordError', 'accountPasswordSuccess'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
+function previewAccountAvatar(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    showToast('❌ Please choose an image file', 'error');
+    return;
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    showToast('❌ Image must be under 2MB', 'error');
+    return;
+  }
+  pendingAvatarFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('accountAvatarPreview').innerHTML = `<img src="${e.target.result}" alt="Avatar">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadPendingAvatar() {
+  if (!pendingAvatarFile) return currentUser.user_metadata?.avatar_url || null;
+  const ext = (pendingAvatarFile.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+  const path = `${currentUser.id}/avatar.${ext}`;
+  const { error: uploadError } = await supabaseClient.storage
+    .from('avatars')
+    .upload(path, pendingAvatarFile, { upsert: true, cacheControl: '3600' });
+  if (uploadError) throw uploadError;
+  const { data } = supabaseClient.storage.from('avatars').getPublicUrl(path);
+  // Cache-bust so the new picture shows immediately even though the path
+  // (and therefore URL) stays the same across re-uploads.
+  return `${data.publicUrl}?t=${Date.now()}`;
+}
+
+async function saveAccountProfile(event) {
+  event.preventDefault();
+  hideAccountMessages();
+  const errorEl = document.getElementById('accountProfileError');
+  const successEl = document.getElementById('accountProfileSuccess');
+  const btn = document.getElementById('accountProfileSaveBtn');
+  const fullName = document.getElementById('accountFullName').value.trim();
+  const phone = document.getElementById('accountPhone').value.trim();
+
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  try {
+    const avatarUrl = await uploadPendingAvatar();
+    const { error } = await supabaseClient.auth.updateUser({
+      data: { full_name: fullName, phone: phone, avatar_url: avatarUrl }
+    });
+    if (error) throw error;
+    pendingAvatarFile = null;
+    successEl.textContent = '✅ Profile updated';
+    successEl.style.display = 'block';
+    showToast('✅ Profile updated', 'success');
+  } catch (err) {
+    errorEl.textContent = err.message || 'Could not update profile';
+    errorEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Profile';
+  }
+}
+
+async function changeAccountPassword(event) {
+  event.preventDefault();
+  hideAccountMessages();
+  const errorEl = document.getElementById('accountPasswordError');
+  const successEl = document.getElementById('accountPasswordSuccess');
+  const btn = document.getElementById('accountPasswordSaveBtn');
+  const newPassword = document.getElementById('accountNewPassword').value;
+  const confirmPassword = document.getElementById('accountConfirmPassword').value;
+
+  if (newPassword.length < 6) {
+    errorEl.textContent = 'Password must be at least 6 characters';
+    errorEl.style.display = 'block';
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    errorEl.textContent = 'Passwords do not match';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Updating...';
+  try {
+    const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    document.getElementById('accountNewPassword').value = '';
+    document.getElementById('accountConfirmPassword').value = '';
+    successEl.textContent = '✅ Password updated';
+    successEl.style.display = 'block';
+    showToast('✅ Password updated', 'success');
+  } catch (err) {
+    errorEl.textContent = err.message || 'Could not update password';
+    errorEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Update Password';
+  }
 }
 
 // ── AUTH MODAL ──────────────────────────────────────────
@@ -352,7 +501,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!currentUser && (window.location.hash === '#signin' || window.location.hash === '#signup')) {
     openAuthModal(window.location.hash === '#signup' ? 'signup' : 'signin');
   }
-  ['authModal', 'myResumesModal'].forEach(id => {
+  ['authModal', 'myResumesModal', 'accountModal'].forEach(id => {
     const modal = document.getElementById(id);
     if (modal) {
       modal.addEventListener('click', (e) => {
