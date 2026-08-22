@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Taimur Rahman — Resume Builder</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;600;700&family=Poppins:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Lora:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="assets/css/main.css">
 </head>
@@ -116,26 +116,67 @@
         <div class="section-header">
           <h3><i class="fas fa-palette"></i> Choose Template</h3>
         </div>
+        <p class="template-section-note">15 Europass-format templates — same EU-recognized structure, 15 distinct looks.</p>
         <div class="template-grid">
-          <div class="template-card active" data-template="modern" onclick="switchTemplate('modern')">
-            <div class="template-thumb template-thumb-modern"></div>
-            <span>Modern</span>
+          <div class="template-card active" data-template="aurora" onclick="switchTemplate('aurora')">
+            <div class="template-thumb template-thumb-aurora"></div>
+            <span>Aurora</span>
           </div>
-          <div class="template-card" data-template="classic" onclick="switchTemplate('classic')">
-            <div class="template-thumb template-thumb-classic"></div>
-            <span>Classic</span>
+          <div class="template-card" data-template="emerald" onclick="switchTemplate('emerald')">
+            <div class="template-thumb template-thumb-emerald"></div>
+            <span>Emerald</span>
           </div>
-          <div class="template-card" data-template="minimal" onclick="switchTemplate('minimal')">
-            <div class="template-thumb template-thumb-minimal"></div>
-            <span>Minimal</span>
+          <div class="template-card" data-template="slate" onclick="switchTemplate('slate')">
+            <div class="template-thumb template-thumb-slate"></div>
+            <span>Slate</span>
           </div>
-          <div class="template-card" data-template="professional" onclick="switchTemplate('professional')">
-            <div class="template-thumb template-thumb-professional"></div>
-            <span>Professional</span>
+          <div class="template-card" data-template="coral" onclick="switchTemplate('coral')">
+            <div class="template-thumb template-thumb-coral"></div>
+            <span>Coral</span>
           </div>
-          <div class="template-card" data-template="creative" onclick="switchTemplate('creative')">
-            <div class="template-thumb template-thumb-creative"></div>
-            <span>Creative</span>
+          <div class="template-card" data-template="ivory" onclick="switchTemplate('ivory')">
+            <div class="template-thumb template-thumb-ivory"></div>
+            <span>Ivory</span>
+          </div>
+          <div class="template-card" data-template="sunrise" onclick="switchTemplate('sunrise')">
+            <div class="template-thumb template-thumb-sunrise"></div>
+            <span>Sunrise</span>
+          </div>
+          <div class="template-card" data-template="horizon" onclick="switchTemplate('horizon')">
+            <div class="template-thumb template-thumb-horizon"></div>
+            <span>Horizon</span>
+          </div>
+          <div class="template-card" data-template="blossom" onclick="switchTemplate('blossom')">
+            <div class="template-thumb template-thumb-blossom"></div>
+            <span>Blossom</span>
+          </div>
+          <div class="template-card" data-template="nordic" onclick="switchTemplate('nordic')">
+            <div class="template-thumb template-thumb-nordic"></div>
+            <span>Nordic</span>
+          </div>
+          <div class="template-card" data-template="velvet" onclick="switchTemplate('velvet')">
+            <div class="template-thumb template-thumb-velvet"></div>
+            <span>Velvet</span>
+          </div>
+          <div class="template-card" data-template="pulse" onclick="switchTemplate('pulse')">
+            <div class="template-thumb template-thumb-pulse"></div>
+            <span>Pulse</span>
+          </div>
+          <div class="template-card" data-template="meridian" onclick="switchTemplate('meridian')">
+            <div class="template-thumb template-thumb-meridian"></div>
+            <span>Meridian</span>
+          </div>
+          <div class="template-card" data-template="zenith" onclick="switchTemplate('zenith')">
+            <div class="template-thumb template-thumb-zenith"></div>
+            <span>Zenith</span>
+          </div>
+          <div class="template-card" data-template="canvas" onclick="switchTemplate('canvas')">
+            <div class="template-thumb template-thumb-canvas"></div>
+            <span>Canvas</span>
+          </div>
+          <div class="template-card" data-template="quartz" onclick="switchTemplate('quartz')">
+            <div class="template-thumb template-thumb-quartz"></div>
+            <span>Quartz</span>
           </div>
         </div>
       </div>
@@ -372,7 +413,7 @@
 
       <!-- Live Resume Preview -->
       <div class="resume-preview-wrapper" id="print_area">
-        <div class="resume-preview template-modern" id="resumePreview">
+        <div class="resume-preview template-aurora" id="resumePreview">
           <div class="preview-empty-state" id="previewEmpty">
             <i class="fas fa-file-alt"></i>
             <p>Start filling in the form on the left to see your live resume preview here!</p>
