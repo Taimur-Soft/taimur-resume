@@ -460,19 +460,82 @@ async function openMyResumes() {
     }
 
     listEl.innerHTML = resumes.map(r => `
-      <div class="my-resume-item">
+      <div class="my-resume-item" data-id="${r.id}">
         <div class="my-resume-info">
           <strong>${escapeHTML(r.name || 'Untitled Resume')}</strong>
           <span>${new Date(r.updated_at).toLocaleString()}</span>
         </div>
         <div class="my-resume-actions">
           <button onclick="loadCloudResume('${r.id}')" class="btn-icon" title="Load"><i class="fas fa-folder-open"></i></button>
+          <button onclick="startRenameResume(this)" class="btn-icon" title="Rename"><i class="fas fa-pen"></i></button>
           <button onclick="deleteCloudResume('${r.id}')" class="remove-btn" title="Delete"><i class="fas fa-trash-alt"></i></button>
         </div>
       </div>`).join('');
   } catch (err) {
     listEl.innerHTML = `<div class="ai-error">❌ ${err.message}</div>`;
   }
+}
+
+// Swaps one list row's name into an editable text box in place — reads
+// everything it needs (the row's id, current name) straight off the DOM
+// via the clicked button, so there's no id/name to smuggle through an
+// onclick string and no risk of a name containing a quote breaking the
+// markup.
+function startRenameResume(btn) {
+  const item = btn.closest('.my-resume-item');
+  if (!item) return;
+  const nameEl = item.querySelector('.my-resume-info strong');
+  const currentName = nameEl.textContent;
+
+  const infoEl = item.querySelector('.my-resume-info');
+  infoEl.innerHTML = `<input type="text" class="rename-input" value="${escapeHTML(currentName)}" maxlength="100">`;
+  const input = infoEl.querySelector('.rename-input');
+  input.focus();
+  input.select();
+
+  const actionsEl = item.querySelector('.my-resume-actions');
+  actionsEl.innerHTML = `
+    <button onclick="confirmRenameResume(this)" class="btn-icon" title="Save name"><i class="fas fa-check"></i></button>
+    <button onclick="openMyResumes()" class="btn-icon" title="Cancel"><i class="fas fa-times"></i></button>
+  `;
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); actionsEl.querySelector('.btn-icon').click(); }
+    if (e.key === 'Escape') openMyResumes();
+  });
+}
+
+async function confirmRenameResume(btn) {
+  const item = btn.closest('.my-resume-item');
+  if (!item) return;
+  const id = item.dataset.id;
+  const input = item.querySelector('.rename-input');
+  const newName = (input?.value || '').trim() || 'Untitled Resume';
+
+  try {
+    const { error } = await supabaseClient.from('resumes').update({ name: newName }).eq('id', id);
+    if (error) throw error;
+    showToast('✅ Renamed', 'success');
+    openMyResumes(); // refresh the list with the new name
+  } catch (err) {
+    showToast('❌ Could not rename: ' + err.message, 'error');
+  }
+}
+
+// Detaches the form from whatever resume is currently loaded so the next
+// edit creates a brand new cloud row instead of overwriting it. Nothing
+// is deleted or at risk: the resume being left is flushed to the cloud
+// first, and stays reachable afterwards from "My Resumes".
+async function startNewResume() {
+  if (!currentUser) { openAuthModal('signin'); return; }
+
+  if (currentCloudResumeId) {
+    clearTimeout(autoSyncTimer);
+    await silentSaveToCloud();
+  }
+  setActiveCloudResumeId(null);
+  showToast('✅ Ready for a new resume', 'success');
+  window.location.reload();
 }
 
 function closeMyResumesModal() {
