@@ -32,13 +32,19 @@ export default async function handler(req, res) {
   try {
     const encoded = encodeURIComponent(url);
     const response = await fetch(`https://is.gd/create.php?format=simple&url=${encoded}`);
-    const shortUrl = await response.text();
+    const shortUrl = (await response.text()).trim();
 
-    if (shortUrl.startsWith('Error:')) {
-      return res.status(500).json({ error: shortUrl });
+    // is.gd returns a plain-text error message instead of a URL when it
+    // can't shorten the link (e.g. "Error: ..." but also other formats
+    // like "Error, database insert failed" without a colon). Rather than
+    // matching a specific error prefix, only ever treat the response as
+    // success if it actually looks like a URL — anything else is an error,
+    // whatever wording is.gd used for it.
+    if (!/^https?:\/\//i.test(shortUrl)) {
+      return res.status(502).json({ error: shortUrl || 'is.gd did not return a short URL' });
     }
 
-    return res.status(200).json({ shortUrl: shortUrl.trim() });
+    return res.status(200).json({ shortUrl });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to shorten URL', detail: err.message });
   }
