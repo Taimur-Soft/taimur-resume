@@ -16,6 +16,10 @@ const ACTIVE_CLOUD_ID_KEY = 'tr_active_cloud_resume_id';
 
 let currentUser = null;
 let currentCloudResumeId = null; // the cloud row currently loaded/being edited, if any
+// Guards the one-time "pull my saved resume back in" pass below so a page
+// refresh while already signed in restores the form from the cloud exactly
+// once — not on every subsequent updateAuthUI() call during the session.
+let initialCloudLoadDone = false;
 
 function setActiveCloudResumeId(id) {
   currentCloudResumeId = id;
@@ -58,10 +62,21 @@ function updateAuthUI() {
     currentCloudResumeId = savedId || null;
     setCloudSyncStatus(currentCloudResumeId ? 'synced' : 'idle');
 
-    // Covers the very first sign-in on this browser: nothing has synced yet,
-    // so push whatever is currently on screen up right away instead of
-    // waiting for the next edit.
-    if (!currentCloudResumeId) autoSyncToCloud();
+    if (currentCloudResumeId && !initialCloudLoadDone) {
+      // A page load (or refresh) while already signed in — pull the
+      // account's own saved resume back into the form. Local-storage
+      // persistence was removed on purpose (it used to leak whatever was
+      // on screen to the next visitor), so this cloud pull is now the
+      // only thing that survives a refresh, and it only ever loads data
+      // that belongs to the signed-in account.
+      initialCloudLoadDone = true;
+      loadCloudResume(currentCloudResumeId, { silent: true });
+    } else if (!currentCloudResumeId) {
+      // Covers the very first sign-in on this browser: nothing has synced yet,
+      // so push whatever is currently on screen up right away instead of
+      // waiting for the next edit.
+      autoSyncToCloud();
+    }
   } else {
     signedOut.style.display = 'flex';
     signedIn.style.display = 'none';
@@ -70,9 +85,9 @@ function updateAuthUI() {
 }
 
 // ── AUTO-SYNC ───────────────────────────────────────────
-// Piggybacks on the same debounced point app.js already uses for
-// localStorage auto-save (see renderCV() -> saveToLocalStorage()), so any
-// edit that triggers a local save also pushes to the cloud when signed in.
+// Piggybacks on the same debounced point app.js already uses to trigger a
+// re-render (see generateCV() -> renderCV()), so any edit that redraws the
+// preview also pushes to the cloud when signed in.
 let autoSyncTimer = null;
 function autoSyncToCloud() {
   if (!currentUser) return;
@@ -151,6 +166,13 @@ async function authSignOut() {
   await supabaseClient.auth.signOut();
   setActiveCloudResumeId(null);
   showToast('✅ Signed out', 'success');
+
+  // Reload rather than just flipping the nav UI: this is the one place
+  // that guarantees every trace of the account's resume — form fields,
+  // the live preview, in-memory state like currentTemplate/currentColor —
+  // is actually wiped, so the next person on this browser starts from a
+  // genuinely blank form instead of still seeing this account's data.
+  setTimeout(() => window.location.reload(), 500);
 }
 
 // ── NAV AVATAR ──────────────────────────────────────────
@@ -457,7 +479,7 @@ function closeMyResumesModal() {
   document.getElementById('myResumesModal').style.display = 'none';
 }
 
-async function loadCloudResume(id) {
+async function loadCloudResume(id, { silent = false } = {}) {
   try {
     const { data: row, error } = await supabaseClient
       .from('resumes')
@@ -469,10 +491,14 @@ async function loadCloudResume(id) {
     setActiveCloudResumeId(row.id);
     restoreFromData(row.data);
     setCloudSyncStatus('synced');
-    closeMyResumesModal();
-    showToast('✅ Resume loaded!', 'success');
+    if (!silent) {
+      closeMyResumesModal();
+      showToast('✅ Resume loaded!', 'success');
+    }
   } catch (err) {
-    showToast('❌ Could not load: ' + err.message, 'error');
+    // Silent (auto) load failing just leaves a blank form — no need to
+    // alarm the user over something they didn't explicitly trigger.
+    if (!silent) showToast('❌ Could not load: ' + err.message, 'error');
   }
 }
 

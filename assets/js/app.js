@@ -16,7 +16,13 @@ let activeStep = 'personal';
 
 // ── INIT ───────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  loadFromLocalStorage();
+  // Deliberately no local-storage restore here: previous data must never
+  // reappear for a different signed-out visitor on the same browser.
+  // Signed-in users get their resume back via auth.js's cloud auto-load
+  // instead; a signed-out visitor always starts from a blank form.
+  // One-time cleanup: purge any resume data a pre-fix version of this app
+  // left sitting in this browser's local storage, so it can't leak either.
+  try { localStorage.removeItem('tr_resume_data'); } catch (e) {}
   initSortableSections();
   addInitialItems();
   renderCV(); // instant first paint — bypass the debounce used for typing
@@ -99,14 +105,12 @@ function switchTemplate(name) {
   preview.className = `resume-preview template-${name}`;
 
   generateCV();
-  saveToLocalStorage();
 }
 
 function updateColor(color) {
   currentColor = color;
   document.getElementById('resumePreview').style.setProperty('--resume-accent', color);
   generateCV();
-  saveToLocalStorage();
 }
 
 // ── GENERATE CV (LIVE PREVIEW) ─────────────────────────
@@ -139,7 +143,6 @@ function renderCV() {
   preview.innerHTML = buildResumeHTML(data);
 
   calculateProgress();
-  saveToLocalStorage();
   pushHistory();
 
   // Cloud auto-sync (auth.js) is optional — only push when a viewer is
@@ -1089,48 +1092,11 @@ function restoreFromData(data) {
   generateCV();
 }
 
-// ── LOCAL STORAGE ──────────────────────────────────────
-let storageWarningShown = false;
-function saveToLocalStorage() {
-  try {
-    const data = collectFormData();
-    localStorage.setItem('tr_resume_data', JSON.stringify(data));
-    storageWarningShown = false; // saving works again — reset for next time
-    updateSaveStatus(true);
-  } catch (e) {
-    // Most common cause: browser storage quota exceeded (e.g. a large
-    // uncompressed photo). Previously this failed completely silently,
-    // so people lost work with zero warning. Only warn once per session
-    // so it doesn't nag on every keystroke.
-    updateSaveStatus(false);
-    if (!storageWarningShown) {
-      storageWarningShown = true;
-      showToast('⚠️ Auto-save failed — your browser storage may be full. Try a smaller photo, or export as JSON to be safe.', 'error');
-    }
-  }
-}
-
-function updateSaveStatus(success) {
-  const el = document.getElementById('saveStatus');
-  if (!el) return;
-  if (success) {
-    el.innerHTML = '<i class="fas fa-check-circle"></i> Saved';
-    el.classList.remove('save-status-error');
-  } else {
-    el.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Not saved';
-    el.classList.add('save-status-error');
-  }
-}
-
-function loadFromLocalStorage() {
-  try {
-    const saved = localStorage.getItem('tr_resume_data');
-    if (saved) {
-      const data = JSON.parse(saved);
-      restoreFromData(data);
-    }
-  } catch (e) {}
-}
+// Local-storage auto-save was removed on purpose: it used to persist the
+// whole resume in the browser regardless of sign-in state, so a second
+// person on the same computer could open the site and see a previous
+// visitor's data even after they signed out. Persistence now only ever
+// happens in the cloud, tied to a signed-in account (see auth.js).
 
 // ── PRINT ──────────────────────────────────────────────
 function printCV() {
