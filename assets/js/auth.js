@@ -102,17 +102,20 @@ async function silentSaveToCloud() {
   const hasData = data.personal.firstname || data.personal.lastname || data.personal.designation;
   if (!hasData) return; // nothing worth syncing yet
 
-  const name = [data.personal.firstname, data.personal.lastname].filter(Boolean).join(' ') || 'Untitled Resume';
   setCloudSyncStatus('syncing');
 
   try {
     if (currentCloudResumeId) {
+      // Never touch `name` here — the user may have given this resume a
+      // custom name via the Rename option, and an autosave must not
+      // silently overwrite that back to a name derived from the form.
       const { error } = await supabaseClient
         .from('resumes')
-        .update({ name, data, updated_at: new Date().toISOString() })
+        .update({ data, updated_at: new Date().toISOString() })
         .eq('id', currentCloudResumeId);
       if (error) throw error;
     } else {
+      const name = [data.personal.firstname, data.personal.lastname].filter(Boolean).join(' ') || 'Untitled Resume';
       const { data: inserted, error } = await supabaseClient
         .from('resumes')
         .insert({ user_id: currentUser.id, name, data })
@@ -411,18 +414,20 @@ async function saveToCloud() {
   if (!currentUser) { openAuthModal('signin'); return; }
 
   const data = collectFormData();
-  const name = [data.personal.firstname, data.personal.lastname].filter(Boolean).join(' ') || 'Untitled Resume';
 
   setCloudSyncStatus('syncing');
   try {
     if (currentCloudResumeId) {
+      // Never touch `name` here — preserve any custom name the user set
+      // via Rename; only the resume content should change on save.
       const { error } = await supabaseClient
         .from('resumes')
-        .update({ name, data, updated_at: new Date().toISOString() })
+        .update({ data, updated_at: new Date().toISOString() })
         .eq('id', currentCloudResumeId);
       if (error) throw error;
       showToast('✅ Resume updated in cloud!', 'success');
     } else {
+      const name = [data.personal.firstname, data.personal.lastname].filter(Boolean).join(' ') || 'Untitled Resume';
       const { data: inserted, error } = await supabaseClient
         .from('resumes')
         .insert({ user_id: currentUser.id, name, data })
