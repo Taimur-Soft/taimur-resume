@@ -34,7 +34,6 @@
       <div id="authSignedIn" class="auth-nav-group" style="display:none">
         <span id="cloudSyncStatus" class="cloud-sync-status"></span>
         <button onclick="saveToCloud()" class="btn-icon" title="Save to Cloud"><i class="fas fa-cloud-upload-alt"></i> Save to Cloud</button>
-        <button onclick="startNewResume()" class="btn-icon" title="Start a new, separate resume"><i class="fas fa-file-circle-plus"></i> New Resume</button>
         <button onclick="openMyResumes()" class="btn-icon" title="My Resumes"><i class="fas fa-folder"></i> My Resumes</button>
         <button onclick="openAccountModal()" class="auth-account-btn" title="Account Settings">
           <span id="authUserAvatar" class="auth-user-avatar"><i class="fas fa-user"></i></span>
@@ -454,8 +453,11 @@
   <div id="myResumesModal" class="share-modal" style="display:none">
     <div class="share-modal-content" style="max-width:480px">
       <button onclick="closeMyResumesModal()" class="btn-close">×</button>
-      <h4><i class="fas fa-cloud"></i> My Saved Resumes</h4>
-      <div id="myResumesList" style="margin-top:16px;max-height:400px;overflow-y:auto"></div>
+      <div class="my-resumes-modal-header">
+        <h4><i class="fas fa-cloud"></i> My Saved Resumes</h4>
+        <button onclick="startNewResume()" class="btn-secondary my-resumes-new-btn" title="Start a new, separate resume"><i class="fas fa-plus"></i> New Resume</button>
+      </div>
+      <div id="myResumesList" style="max-height:400px;overflow-y:auto"></div>
     </div>
   </div>
 
