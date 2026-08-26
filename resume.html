@@ -26,6 +26,9 @@
     </div>
     <div class="nav-actions">
       <div id="authSignedOut" class="auth-nav-group">
+        <span class="demo-mode-hint" title="Typing here is just a live preview — sign in to actually save a resume">
+          <i class="fas fa-circle-info"></i> Demo mode — not saved
+        </span>
         <button onclick="openAuthModal('signin')" class="btn-icon" title="Sign In"><i class="fas fa-sign-in-alt"></i> Sign In</button>
       </div>
       <div id="authSignedIn" class="auth-nav-group" style="display:none">
@@ -38,7 +41,6 @@
         </button>
         <button onclick="authSignOut()" class="btn-icon" title="Sign Out"><i class="fas fa-sign-out-alt"></i></button>
       </div>
-      <span id="saveStatus" class="save-status"><i class="fas fa-check-circle"></i> Saved</span>
       <button onclick="importJSON()" class="btn-icon" title="Import from JSON file">
         <i class="fas fa-upload"></i> Import
       </button>
