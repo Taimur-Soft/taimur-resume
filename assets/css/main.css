@@ -490,6 +490,12 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 .my-resume-info strong { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .my-resume-info span { font-size: 11px; color: var(--text-muted); }
 .my-resume-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.rename-input {
+  padding: 5px 8px; border-radius: 6px; width: 100%;
+  border: 1.5px solid var(--border); font-size: 13px; font-family: inherit;
+  color: var(--text); background: var(--surface);
+}
+.rename-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px #dbeafe; }
 
 .auth-account-btn {
   display: flex; align-items: center; gap: 7px; background: none; border: none;
