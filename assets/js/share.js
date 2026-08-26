@@ -20,17 +20,21 @@ async function shareResume() {
   // Generate QR from long URL first (will update if short URL succeeds)
   generateQR(longUrl);
 
-  // Try to shorten
+  // Try to shorten. Only ever swap in the short URL if the API actually
+  // returned one — any error response (or a malformed/missing shortUrl)
+  // just leaves the long URL + its QR code in place, which already works.
   try {
     const res = await fetch(`/api/shorten?url=${encodeURIComponent(longUrl)}`);
-    if (res.ok) {
-      const { shortUrl } = await res.json();
-      document.getElementById('shareUrl').value = shortUrl;
-      generateQR(shortUrl);
+    const result = await res.json();
+    if (res.ok && result.shortUrl && /^https?:\/\//i.test(result.shortUrl)) {
+      document.getElementById('shareUrl').value = result.shortUrl;
+      generateQR(result.shortUrl);
+    } else {
+      console.warn('URL shortening failed, using full URL:', result.error || result);
     }
   } catch (e) {
     // Keep long URL — still works
-    console.warn('URL shortening failed, using full URL');
+    console.warn('URL shortening failed, using full URL:', e.message);
   }
 }
 
