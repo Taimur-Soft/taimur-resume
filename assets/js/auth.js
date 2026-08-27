@@ -21,6 +21,17 @@ let currentCloudResumeId = null; // the cloud row currently loaded/being edited,
 // once — not on every subsequent updateAuthUI() call during the session.
 let initialCloudLoadDone = false;
 
+// Bumped every time the user switches which resume is active (loading a
+// different saved resume, or starting a new one). A save that started
+// against the OLD resume captures the version at that moment; if it's
+// still in flight when the version changes, it must not be allowed to
+// touch currentCloudResumeId or the on-screen form when it finally
+// resolves — otherwise a slow "create my first save" for resume A can
+// complete AFTER the user has already switched to resume B and silently
+// re-point the app at A's newly created row (or worse, get treated as
+// B's row), which is how one resume's data ends up saved into another's.
+let resumeContextVersion = 0;
+
 function setActiveCloudResumeId(id) {
   currentCloudResumeId = id;
   try {
@@ -98,6 +109,10 @@ function autoSyncToCloud() {
 async function silentSaveToCloud() {
   if (!currentUser) return;
 
+  // Lock in which resume this save is FOR, before anything async happens.
+  const myVersion = resumeContextVersion;
+  const startId = currentCloudResumeId;
+
   const data = collectFormData();
   const hasData = data.personal.firstname || data.personal.lastname || data.personal.designation;
   if (!hasData) return; // nothing worth syncing yet
@@ -105,14 +120,14 @@ async function silentSaveToCloud() {
   setCloudSyncStatus('syncing');
 
   try {
-    if (currentCloudResumeId) {
+    if (startId) {
       // Never touch `name` here — the user may have given this resume a
       // custom name via the Rename option, and an autosave must not
       // silently overwrite that back to a name derived from the form.
       const { error } = await supabaseClient
         .from('resumes')
         .update({ data, updated_at: new Date().toISOString() })
-        .eq('id', currentCloudResumeId);
+        .eq('id', startId);
       if (error) throw error;
     } else {
       const name = [data.personal.firstname, data.personal.lastname].filter(Boolean).join(' ') || 'Untitled Resume';
@@ -122,8 +137,14 @@ async function silentSaveToCloud() {
         .select()
         .single();
       if (error) throw error;
-      setActiveCloudResumeId(inserted.id);
+      // Only adopt the freshly created row as "active" if the user hasn't
+      // already switched to a different resume while this insert was in
+      // flight — otherwise we'd yank the app back onto this row (or, once
+      // that other resume's own save fires, have it write into this row
+      // by mistake).
+      if (myVersion === resumeContextVersion) setActiveCloudResumeId(inserted.id);
     }
+    if (myVersion !== resumeContextVersion) return;
     setCloudSyncStatus('synced');
   } catch (err) {
     setCloudSyncStatus('error', err.message);
@@ -413,17 +434,22 @@ async function handleAuthSubmit(event) {
 async function saveToCloud() {
   if (!currentUser) { openAuthModal('signin'); return; }
 
+  // Lock in which resume this save is FOR, before anything async happens —
+  // see the comment on resumeContextVersion above.
+  const myVersion = resumeContextVersion;
+  const startId = currentCloudResumeId;
+
   const data = collectFormData();
 
   setCloudSyncStatus('syncing');
   try {
-    if (currentCloudResumeId) {
+    if (startId) {
       // Never touch `name` here — preserve any custom name the user set
       // via Rename; only the resume content should change on save.
       const { error } = await supabaseClient
         .from('resumes')
         .update({ data, updated_at: new Date().toISOString() })
-        .eq('id', currentCloudResumeId);
+        .eq('id', startId);
       if (error) throw error;
       showToast('✅ Resume updated in cloud!', 'success');
     } else {
@@ -434,10 +460,12 @@ async function saveToCloud() {
         .select()
         .single();
       if (error) throw error;
-      setActiveCloudResumeId(inserted.id);
+      // Don't steal focus back onto this row if the user has already
+      // switched to a different resume while the insert was in flight.
+      if (myVersion === resumeContextVersion) setActiveCloudResumeId(inserted.id);
       showToast('✅ Resume saved to cloud!', 'success');
     }
-    setCloudSyncStatus('synced');
+    if (myVersion === resumeContextVersion) setCloudSyncStatus('synced');
   } catch (err) {
     setCloudSyncStatus('error', err.message);
     showToast('❌ Could not save: ' + err.message, 'error');
@@ -538,6 +566,7 @@ async function startNewResume() {
     clearTimeout(autoSyncTimer);
     await silentSaveToCloud();
   }
+  resumeContextVersion++; // invalidate anything else still in flight
   setActiveCloudResumeId(null);
   showToast('✅ Ready for a new resume', 'success');
   window.location.reload();
@@ -548,6 +577,14 @@ function closeMyResumesModal() {
 }
 
 async function loadCloudResume(id, { silent = false } = {}) {
+  // Cancel any autosave still pending for whatever resume was active
+  // before this, and declare that we're switching context right now —
+  // this immediately invalidates any save already in flight, so it can't
+  // resolve later and either yank the app back onto the old resume or
+  // write its data into this one. See resumeContextVersion above.
+  clearTimeout(autoSyncTimer);
+  const myVersion = ++resumeContextVersion;
+
   try {
     const { data: row, error } = await supabaseClient
       .from('resumes')
@@ -555,6 +592,11 @@ async function loadCloudResume(id, { silent = false } = {}) {
       .eq('id', id)
       .single();
     if (error) throw error;
+
+    // If the user has since clicked to load yet another resume (this
+    // fetch lost the race), don't let this now-stale response overwrite
+    // whatever they've already switched to.
+    if (myVersion !== resumeContextVersion) return;
 
     setActiveCloudResumeId(row.id);
     restoreFromData(row.data);
