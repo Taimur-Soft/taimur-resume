@@ -1018,9 +1018,14 @@ const SECTION_FIELD_MAPS = {
 // achievements) from saved data, using the field map above.
 function restoreRepeaterSection(section, items, fieldMap) {
   const container = document.getElementById(`${section}-container`);
-  if (!container || !items?.length) return;
+  if (!container) return;
 
+  // Always clear first, even when this resume has no items for the
+  // section — otherwise whatever the previously loaded resume put here
+  // stays behind and shows up mixed in with the next resume.
   container.innerHTML = '';
+  if (!items?.length) return;
+
   items.forEach(item => {
     addRepeaterItem(section);
     const newItem = container.lastElementChild;
@@ -1065,11 +1070,13 @@ function restoreFromData(data) {
     document.getElementById('colorPicker').value = data.color;
   }
 
-  // Restore personal fields
+  // Restore personal fields — always set the field, even to empty, so a
+  // blank field on the resume being loaded actually clears out whatever
+  // the previously loaded resume left behind, instead of leaking through.
   const personal = data.personal || {};
   const setField = (cls, val) => {
     const el = document.querySelector(`.${cls}`);
-    if (el && val) el.value = val;
+    if (el) el.value = val || '';
   };
   setField('firstname', personal.firstname);
   setField('middlename', personal.middlename);
@@ -1080,6 +1087,11 @@ function restoreFromData(data) {
   setField('phoneno', personal.phoneno);
   setField('website', personal.website);
   setField('summary', personal.summary);
+
+  // Same reasoning for the profile photo — clear it when the resume being
+  // loaded doesn't have one, don't leave the previous resume's photo showing.
+  const imageEl = document.getElementById('image_dsp');
+  if (imageEl) imageEl.src = personal.image || '';
 
   // Restore repeater sections
   restoreRepeaterSection('experience', data.experiences, SECTION_FIELD_MAPS.experience);
