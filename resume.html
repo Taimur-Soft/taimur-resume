@@ -470,11 +470,11 @@
       <!-- Step: Sign Up — enter code -->
       <div id="authStepSignupCode" style="display:none">
         <h4><i class="fas fa-envelope-open-text"></i> Verify Email</h4>
-        <p class="hint-text" style="margin-bottom:16px">We sent a 6-digit code to <strong id="signupCodeEmailLabel"></strong></p>
+        <p class="hint-text" style="margin-bottom:16px">We sent a verification code to <strong id="signupCodeEmailLabel"></strong></p>
         <form id="authFormSignupCode" onsubmit="handleSignupCodeSubmit(event)">
           <div class="form-elem" style="margin-bottom:16px">
             <label>Verification Code</label>
-            <input type="text" id="signupCode" class="form-input" required inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
+            <input type="text" id="signupCode" class="form-input" required inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Enter the code from your email">
           </div>
           <div id="signupCodeError" class="field-error-msg" style="display:none;margin-bottom:12px"></div>
           <button type="submit" id="signupCodeSubmitBtn" class="btn-primary" style="width:100%;justify-content:center">Verify</button>
