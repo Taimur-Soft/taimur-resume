@@ -174,10 +174,26 @@ function setCloudSyncStatus(state, errorMessage) {
 }
 
 // ── SIGN UP / SIGN IN / SIGN OUT ───────────────────────
-async function authSignUp(email, password) {
-  const { data, error } = await supabaseClient.auth.signUp({ email, password });
+// New sign-up flow: email → 6-digit code (OTP) → set password → forced
+// re-login. Avoids the old signUp()+confirmation-link flow entirely, since
+// clicking the link from the email client was breaking for the user.
+async function authSendSignupCode(email) {
+  const { data, error } = await supabaseClient.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: true }
+  });
   if (error) throw error;
   return data;
+}
+
+async function authVerifySignupCode(email, code) {
+  const { data, error } = await supabaseClient.auth.verifyOtp({
+    email,
+    token: code,
+    type: 'email'
+  });
+  if (error) throw error;
+  return data; // on success this also creates a live session
 }
 
 async function authSignIn(email, password) {
@@ -344,59 +360,63 @@ async function changeAccountPassword(event) {
 }
 
 // ── AUTH MODAL ──────────────────────────────────────────
-let authMode = 'signin'; // 'signin' | 'signup'
+// Multi-step flow:
+//   signin  -> sign in with email + password (existing accounts)
+//   signupEmail -> enter email only, sends a 6-digit code
+//   signupCode  -> enter the code, verifies it (creates a temp session)
+//   signupPassword -> set a password for the new account, then the user
+//                     is signed out and sent back to signin to log in fresh
+let authStep = 'signin'; // 'signin' | 'signupEmail' | 'signupCode' | 'signupPassword'
+let pendingSignupEmail = '';
+let resendCodeCooldownUntil = 0;
+
+const AUTH_STEP_IDS = ['authStepSignin', 'authStepSignupEmail', 'authStepSignupCode', 'authStepSignupPassword'];
+
+function showAuthStep(step) {
+  authStep = step;
+  const idMap = {
+    signin: 'authStepSignin',
+    signupEmail: 'authStepSignupEmail',
+    signupCode: 'authStepSignupCode',
+    signupPassword: 'authStepSignupPassword'
+  };
+  AUTH_STEP_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (id === idMap[step]) ? 'block' : 'none';
+  });
+  // Hide any leftover error banners from other steps.
+  ['signinError', 'signupEmailError', 'signupCodeError', 'signupPasswordError'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
 
 function openAuthModal(mode = 'signin') {
-  authMode = mode;
   document.getElementById('authModal').style.display = 'flex';
-  updateAuthModalMode();
+  showAuthStep(mode === 'signup' ? 'signupEmail' : 'signin');
 }
 
 function closeAuthModal() {
   document.getElementById('authModal').style.display = 'none';
-  const errorEl = document.getElementById('authError');
-  if (errorEl) errorEl.style.display = 'none';
-  const form = document.getElementById('authForm');
-  if (form) form.reset();
+  ['authFormSignin', 'authFormSignupEmail', 'authFormSignupCode', 'authFormSignupPassword'].forEach(id => {
+    const form = document.getElementById(id);
+    if (form) form.reset();
+  });
 }
 
+// Kept for the "Sign Up" / "Sign In" links inside the modal itself.
 function switchAuthMode() {
-  authMode = authMode === 'signin' ? 'signup' : 'signin';
-  updateAuthModalMode();
+  showAuthStep(authStep === 'signin' ? 'signupEmail' : 'signin');
 }
 
-function updateAuthModalMode() {
-  const title = document.getElementById('authModalTitle');
-  const submitBtn = document.getElementById('authSubmitBtn');
-  const switchText = document.getElementById('authSwitchText');
-  const errorEl = document.getElementById('authError');
-  if (errorEl) errorEl.style.display = 'none';
-
-  if (authMode === 'signin') {
-    title.innerHTML = '<i class="fas fa-user"></i> Sign In';
-    submitBtn.textContent = 'Sign In';
-    switchText.innerHTML = `Don't have an account? <a href="#" onclick="switchAuthMode(); return false;">Sign Up</a>`;
-  } else {
-    title.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
-    submitBtn.textContent = 'Sign Up';
-    switchText.innerHTML = `Already have an account? <a href="#" onclick="switchAuthMode(); return false;">Sign In</a>`;
-  }
-}
-
-async function handleAuthSubmit(event) {
+// ── Step 1: Sign In (existing accounts) ─────────────────
+async function handleSigninSubmit(event) {
   event.preventDefault();
-  const email = document.getElementById('authEmail').value.trim();
-  const password = document.getElementById('authPassword').value;
-  const errorEl = document.getElementById('authError');
-  const submitBtn = document.getElementById('authSubmitBtn');
-
+  const email = document.getElementById('signinEmail').value.trim();
+  const password = document.getElementById('signinPassword').value;
+  const errorEl = document.getElementById('signinError');
+  const submitBtn = document.getElementById('signinSubmitBtn');
   if (!email || !password) return;
-  if (password.length < 6) {
-    errorEl.style.color = 'var(--danger)';
-    errorEl.textContent = 'Password must be at least 6 characters';
-    errorEl.style.display = 'block';
-    return;
-  }
 
   submitBtn.disabled = true;
   const originalText = submitBtn.textContent;
@@ -404,22 +424,133 @@ async function handleAuthSubmit(event) {
   errorEl.style.display = 'none';
 
   try {
-    if (authMode === 'signup') {
-      const data = await authSignUp(email, password);
-      if (data.user && !data.session) {
-        // Email confirmation is required before this account can sign in.
-        errorEl.style.color = 'var(--success)';
-        errorEl.textContent = '✅ Account created! Please check your email to confirm before signing in.';
-        errorEl.style.display = 'block';
-      } else {
-        showToast('✅ Account created!', 'success');
-        closeAuthModal();
-      }
-    } else {
-      await authSignIn(email, password);
-      showToast('✅ Signed in!', 'success');
-      closeAuthModal();
-    }
+    await authSignIn(email, password);
+    showToast('✅ Signed in!', 'success');
+    closeAuthModal();
+  } catch (err) {
+    errorEl.style.color = 'var(--danger)';
+    errorEl.textContent = err.message || 'Something went wrong';
+    errorEl.style.display = 'block';
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
+  }
+}
+
+// ── Step 2: Sign Up — email only, sends the code ────────
+async function handleSignupEmailSubmit(event) {
+  event.preventDefault();
+  const email = document.getElementById('signupEmail').value.trim();
+  const errorEl = document.getElementById('signupEmailError');
+  const submitBtn = document.getElementById('signupEmailSubmitBtn');
+  if (!email) return;
+
+  submitBtn.disabled = true;
+  const originalText = submitBtn.textContent;
+  submitBtn.textContent = 'Sending...';
+  errorEl.style.display = 'none';
+
+  try {
+    await authSendSignupCode(email);
+    pendingSignupEmail = email;
+    resendCodeCooldownUntil = Date.now() + 30000;
+    document.getElementById('signupCodeEmailLabel').textContent = email;
+    document.getElementById('signupCode').value = '';
+    showAuthStep('signupCode');
+  } catch (err) {
+    errorEl.style.color = 'var(--danger)';
+    errorEl.textContent = err.message || 'Could not send verification code';
+    errorEl.style.display = 'block';
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
+  }
+}
+
+async function resendSignupCode() {
+  const link = document.getElementById('resendCodeLink');
+  if (Date.now() < resendCodeCooldownUntil) {
+    showToast('Please wait a moment before requesting another code', 'error');
+    return;
+  }
+  try {
+    await authSendSignupCode(pendingSignupEmail);
+    resendCodeCooldownUntil = Date.now() + 30000;
+    showToast('✅ Code resent', 'success');
+  } catch (err) {
+    showToast('❌ ' + (err.message || 'Could not resend code'), 'error');
+  }
+}
+
+// ── Step 3: Sign Up — verify the code ───────────────────
+async function handleSignupCodeSubmit(event) {
+  event.preventDefault();
+  const code = document.getElementById('signupCode').value.trim();
+  const errorEl = document.getElementById('signupCodeError');
+  const submitBtn = document.getElementById('signupCodeSubmitBtn');
+  if (!code) return;
+
+  submitBtn.disabled = true;
+  const originalText = submitBtn.textContent;
+  submitBtn.textContent = 'Verifying...';
+  errorEl.style.display = 'none';
+
+  try {
+    await authVerifySignupCode(pendingSignupEmail, code);
+    document.getElementById('signupPassword').value = '';
+    document.getElementById('signupPasswordConfirm').value = '';
+    showAuthStep('signupPassword');
+  } catch (err) {
+    errorEl.style.color = 'var(--danger)';
+    errorEl.textContent = err.message || 'Invalid or expired code';
+    errorEl.style.display = 'block';
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
+  }
+}
+
+// ── Step 4: Sign Up — set password, then force a fresh login ─
+async function handleSignupPasswordSubmit(event) {
+  event.preventDefault();
+  const password = document.getElementById('signupPassword').value;
+  const confirmPassword = document.getElementById('signupPasswordConfirm').value;
+  const errorEl = document.getElementById('signupPasswordError');
+  const submitBtn = document.getElementById('signupPasswordSubmitBtn');
+
+  if (password.length < 6) {
+    errorEl.style.color = 'var(--danger)';
+    errorEl.textContent = 'Password must be at least 6 characters';
+    errorEl.style.display = 'block';
+    return;
+  }
+  if (password !== confirmPassword) {
+    errorEl.style.color = 'var(--danger)';
+    errorEl.textContent = 'Passwords do not match';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  submitBtn.disabled = true;
+  const originalText = submitBtn.textContent;
+  submitBtn.textContent = 'Saving...';
+  errorEl.style.display = 'none';
+
+  try {
+    const { error } = await supabaseClient.auth.updateUser({ password });
+    if (error) throw error;
+
+    // Verifying the code above created a temporary session — sign it out
+    // so the user has to log in fresh with their new email + password,
+    // exactly as requested, rather than silently continuing signed in.
+    const emailForLogin = pendingSignupEmail;
+    await supabaseClient.auth.signOut();
+    setActiveCloudResumeId(null);
+    pendingSignupEmail = '';
+
+    try { sessionStorage.setItem('tr_just_signed_up_email', emailForLogin); } catch (e) {}
+    window.location.hash = 'signin';
+    window.location.reload();
   } catch (err) {
     errorEl.style.color = 'var(--danger)';
     errorEl.textContent = err.message || 'Something went wrong';
@@ -636,6 +767,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   // one-click flow from the landing page. Skip if already signed in.
   if (!currentUser && (window.location.hash === '#signin' || window.location.hash === '#signup')) {
     openAuthModal(window.location.hash === '#signup' ? 'signup' : 'signin');
+  }
+  // After finishing the sign-up flow (email -> code -> set password) we
+  // sign the user out and reload back to #signin so they log in fresh with
+  // their new email + password — prefill the email and show a success toast.
+  let justSignedUpEmail = null;
+  try { justSignedUpEmail = sessionStorage.getItem('tr_just_signed_up_email'); } catch (e) {}
+  if (justSignedUpEmail) {
+    try { sessionStorage.removeItem('tr_just_signed_up_email'); } catch (e) {}
+    if (!currentUser) {
+      openAuthModal('signin');
+      const emailInput = document.getElementById('signinEmail');
+      if (emailInput) emailInput.value = justSignedUpEmail;
+      showToast('✅ Account created! Please sign in.', 'success');
+    }
   }
   ['authModal', 'myResumesModal', 'accountModal'].forEach(id => {
     const modal = document.getElementById(id);
