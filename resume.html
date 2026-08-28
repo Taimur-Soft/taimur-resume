@@ -430,22 +430,76 @@
   <div id="authModal" class="share-modal" style="display:none">
     <div class="share-modal-content">
       <button onclick="closeAuthModal()" class="btn-close">×</button>
-      <h4 id="authModalTitle"><i class="fas fa-user"></i> Sign In</h4>
-      <form id="authForm" onsubmit="handleAuthSubmit(event)">
-        <div class="form-elem" style="margin-bottom:12px">
-          <label>Email</label>
-          <input type="email" id="authEmail" class="form-input" required placeholder="you@example.com">
-        </div>
-        <div class="form-elem" style="margin-bottom:16px">
-          <label>Password</label>
-          <input type="password" id="authPassword" class="form-input" required minlength="6" placeholder="At least 6 characters">
-        </div>
-        <div id="authError" class="field-error-msg" style="display:none;margin-bottom:12px"></div>
-        <button type="submit" id="authSubmitBtn" class="btn-primary" style="width:100%;justify-content:center">Sign In</button>
-      </form>
-      <p id="authSwitchText" class="hint-text" style="text-align:center;margin-top:16px">
-        Don't have an account? <a href="#" onclick="switchAuthMode(); return false;">Sign Up</a>
-      </p>
+
+      <!-- Step: Sign In -->
+      <div id="authStepSignin">
+        <h4><i class="fas fa-user"></i> Sign In</h4>
+        <form id="authFormSignin" onsubmit="handleSigninSubmit(event)">
+          <div class="form-elem" style="margin-bottom:12px">
+            <label>Email</label>
+            <input type="email" id="signinEmail" class="form-input" required placeholder="you@example.com">
+          </div>
+          <div class="form-elem" style="margin-bottom:16px">
+            <label>Password</label>
+            <input type="password" id="signinPassword" class="form-input" required placeholder="Your password">
+          </div>
+          <div id="signinError" class="field-error-msg" style="display:none;margin-bottom:12px"></div>
+          <button type="submit" id="signinSubmitBtn" class="btn-primary" style="width:100%;justify-content:center">Sign In</button>
+        </form>
+        <p class="hint-text" style="text-align:center;margin-top:16px">
+          Don't have an account? <a href="#" onclick="showAuthStep('signupEmail'); return false;">Sign Up</a>
+        </p>
+      </div>
+
+      <!-- Step: Sign Up — email only -->
+      <div id="authStepSignupEmail" style="display:none">
+        <h4><i class="fas fa-user-plus"></i> Create Account</h4>
+        <form id="authFormSignupEmail" onsubmit="handleSignupEmailSubmit(event)">
+          <div class="form-elem" style="margin-bottom:16px">
+            <label>Email</label>
+            <input type="email" id="signupEmail" class="form-input" required placeholder="you@example.com">
+          </div>
+          <div id="signupEmailError" class="field-error-msg" style="display:none;margin-bottom:12px"></div>
+          <button type="submit" id="signupEmailSubmitBtn" class="btn-primary" style="width:100%;justify-content:center">Send Code</button>
+        </form>
+        <p class="hint-text" style="text-align:center;margin-top:16px">
+          Already have an account? <a href="#" onclick="showAuthStep('signin'); return false;">Sign In</a>
+        </p>
+      </div>
+
+      <!-- Step: Sign Up — enter code -->
+      <div id="authStepSignupCode" style="display:none">
+        <h4><i class="fas fa-envelope-open-text"></i> Verify Email</h4>
+        <p class="hint-text" style="margin-bottom:16px">We sent a 6-digit code to <strong id="signupCodeEmailLabel"></strong></p>
+        <form id="authFormSignupCode" onsubmit="handleSignupCodeSubmit(event)">
+          <div class="form-elem" style="margin-bottom:16px">
+            <label>Verification Code</label>
+            <input type="text" id="signupCode" class="form-input" required inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
+          </div>
+          <div id="signupCodeError" class="field-error-msg" style="display:none;margin-bottom:12px"></div>
+          <button type="submit" id="signupCodeSubmitBtn" class="btn-primary" style="width:100%;justify-content:center">Verify</button>
+        </form>
+        <p class="hint-text" style="text-align:center;margin-top:16px">
+          Didn't get it? <a href="#" id="resendCodeLink" onclick="resendSignupCode(); return false;">Resend code</a>
+        </p>
+      </div>
+
+      <!-- Step: Sign Up — set password -->
+      <div id="authStepSignupPassword" style="display:none">
+        <h4><i class="fas fa-lock"></i> Set a Password</h4>
+        <form id="authFormSignupPassword" onsubmit="handleSignupPasswordSubmit(event)">
+          <div class="form-elem" style="margin-bottom:12px">
+            <label>Password</label>
+            <input type="password" id="signupPassword" class="form-input" required minlength="6" placeholder="At least 6 characters">
+          </div>
+          <div class="form-elem" style="margin-bottom:16px">
+            <label>Confirm Password</label>
+            <input type="password" id="signupPasswordConfirm" class="form-input" required minlength="6" placeholder="Retype password">
+          </div>
+          <div id="signupPasswordError" class="field-error-msg" style="display:none;margin-bottom:12px"></div>
+          <button type="submit" id="signupPasswordSubmitBtn" class="btn-primary" style="width:100%;justify-content:center">Set Password</button>
+        </form>
+      </div>
     </div>
   </div>
 
