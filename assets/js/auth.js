@@ -16,6 +16,7 @@ const ACTIVE_CLOUD_ID_KEY = 'tr_active_cloud_resume_id';
 
 let currentUser = null;
 let currentCloudResumeId = null; // the cloud row currently loaded/being edited, if any
+let currentCloudResumeName = null; // display name of that row, shown in the navbar badge
 // Guards the one-time "pull my saved resume back in" pass below so a page
 // refresh while already signed in restores the form from the cloud exactly
 // once — not on every subsequent updateAuthUI() call during the session.
@@ -38,6 +39,23 @@ function setActiveCloudResumeId(id) {
     if (id) localStorage.setItem(ACTIVE_CLOUD_ID_KEY, id);
     else localStorage.removeItem(ACTIVE_CLOUD_ID_KEY);
   } catch (e) { /* localStorage unavailable — auto-sync still works this tab */ }
+}
+
+// Shows which saved resume is currently loaded, right next to the logo, so
+// switching between several saved resumes doesn't leave the user guessing
+// which one is open. Hidden entirely when nothing is loaded (e.g. a brand
+// new, not-yet-saved resume, or signed out).
+function setActiveCloudResumeName(name) {
+  currentCloudResumeName = name;
+  const label = document.getElementById('activeResumeLabel');
+  const textEl = document.getElementById('activeResumeLabelText');
+  if (!label || !textEl) return;
+  if (name) {
+    textEl.textContent = name;
+    label.style.display = 'flex';
+  } else {
+    label.style.display = 'none';
+  }
 }
 
 // ── AUTH STATE ──────────────────────────────────────────
@@ -593,7 +611,10 @@ async function saveToCloud() {
       if (error) throw error;
       // Don't steal focus back onto this row if the user has already
       // switched to a different resume while the insert was in flight.
-      if (myVersion === resumeContextVersion) setActiveCloudResumeId(inserted.id);
+      if (myVersion === resumeContextVersion) {
+        setActiveCloudResumeId(inserted.id);
+        setActiveCloudResumeName(inserted.name);
+      }
       showToast('✅ Resume saved to cloud!', 'success');
     }
     if (myVersion === resumeContextVersion) setCloudSyncStatus('synced');
@@ -680,6 +701,8 @@ async function confirmRenameResume(btn) {
   try {
     const { error } = await supabaseClient.from('resumes').update({ name: newName }).eq('id', id);
     if (error) throw error;
+    // Keep the navbar badge in sync if this is the resume open right now.
+    if (id === currentCloudResumeId) setActiveCloudResumeName(newName);
     showToast('✅ Renamed', 'success');
     openMyResumes(); // refresh the list with the new name
   } catch (err) {
@@ -700,6 +723,7 @@ async function startNewResume() {
   }
   resumeContextVersion++; // invalidate anything else still in flight
   setActiveCloudResumeId(null);
+  setActiveCloudResumeName(null);
   showToast('✅ Ready for a new resume', 'success');
   window.location.reload();
 }
@@ -731,6 +755,7 @@ async function loadCloudResume(id, { silent = false } = {}) {
     if (myVersion !== resumeContextVersion) return;
 
     setActiveCloudResumeId(row.id);
+    setActiveCloudResumeName(row.name || 'Untitled Resume');
     restoreFromData(row.data);
     setCloudSyncStatus('synced');
     if (!silent) {
@@ -777,6 +802,7 @@ async function deleteCloudResume(id) {
     if (error) throw error;
     if (currentCloudResumeId === id) {
       setActiveCloudResumeId(null);
+      setActiveCloudResumeName(null);
       setCloudSyncStatus('idle');
     }
     showToast('✅ Resume deleted', 'success');
