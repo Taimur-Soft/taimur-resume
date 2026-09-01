@@ -28,40 +28,44 @@ async function importFromGitHub() {
     // sort=created|updated|pushed|full_name — there is no "stars" option —
     // so we fetch by most recently pushed and sort by stargazers client-side.
     const reposRes = await fetch(`https://api.github.com/users/${username}/repos?per_page=30&sort=pushed`);
+    if (!reposRes.ok) {
+      if (reposRes.status === 403) throw new Error('API rate limit reached. Try again in an hour.');
+      throw new Error('Failed to fetch GitHub repositories');
+    }
     const repos = (await reposRes.json())
       .sort((a, b) => (b.stargazers_count || 0) - (a.stargazers_count || 0));
 
-    // Populate personal info if fields are empty
+    // Populate personal info if fields are empty. Track what actually
+    // changed vs. what was skipped, so the final message can say exactly
+    // what happened instead of a blanket "success" that hides the fact
+    // that GitHub simply had nothing public to offer for a field, or that
+    // the field already had a value and was left alone on purpose.
+    const filled = [];
+    const skippedExisting = [];
+    const notOnProfile = [];
+
+    function applyField(profileValue, input, label) {
+      if (!profileValue) { notOnProfile.push(label); return; }
+      if (!input) return;
+      if (input.value) { skippedExisting.push(label); return; }
+      input.value = profileValue;
+      filled.push(label);
+    }
+
     if (profile.name) {
       const nameParts = profile.name.split(' ');
-      const firstInput = document.querySelector('.firstname');
-      const lastInput = document.querySelector('.lastname');
-      if (firstInput && !firstInput.value) firstInput.value = nameParts[0] || '';
-      if (lastInput && !lastInput.value) lastInput.value = nameParts.slice(1).join(' ') || '';
+      applyField(nameParts[0] || '', document.querySelector('.firstname'), 'first name');
+      applyField(nameParts.slice(1).join(' ') || nameParts[0] || '', document.querySelector('.lastname'), 'last name');
+    } else {
+      notOnProfile.push('name');
     }
 
-    if (profile.bio) {
-      const summaryInput = document.querySelector('.summary');
-      if (summaryInput && !summaryInput.value) summaryInput.value = profile.bio;
-    }
-
-    if (profile.location) {
-      const addressInput = document.querySelector('.address');
-      if (addressInput && !addressInput.value) addressInput.value = profile.location;
-    }
-
-    if (profile.email) {
-      const emailInput = document.querySelector('.email');
-      if (emailInput && !emailInput.value) emailInput.value = profile.email;
-    }
-
-    if (profile.blog) {
-      const websiteInput = document.querySelector('.website');
-      if (websiteInput && !websiteInput.value) websiteInput.value = profile.blog;
-    }
+    applyField(profile.bio, document.querySelector('.summary'), 'summary');
+    applyField(profile.location, document.querySelector('.address'), 'address');
+    applyField(profile.email, document.querySelector('.email'), 'email');
+    applyField(profile.blog, document.querySelector('.website'), 'website');
 
     // Populate projects from repos
-    const container = document.getElementById('projects-container');
     let importedCount = 0;
 
     for (const repo of repos.slice(0, 6)) {
@@ -88,7 +92,25 @@ async function importFromGitHub() {
     }
 
     generateCV();
-    showToast(`✅ Imported from GitHub: ${profile.name || username} | ${importedCount} projects added`, 'success');
+
+    // Build an honest summary instead of a blanket "imported!" message —
+    // if nothing actually changed, say so plainly rather than showing a
+    // green checkmark for a no-op.
+    const parts = [];
+    if (filled.length) parts.push(`filled ${filled.join(', ')}`);
+    if (importedCount) parts.push(`added ${importedCount} project${importedCount > 1 ? 's' : ''}`);
+
+    if (parts.length) {
+      let msg = `✅ Imported from GitHub: ${parts.join(' · ')}`;
+      if (skippedExisting.length) msg += ` (kept existing ${skippedExisting.join(', ')})`;
+      showToast(msg, 'success');
+    } else {
+      const reasons = [];
+      if (notOnProfile.length) reasons.push(`${notOnProfile.join(', ')} not public on this GitHub profile`);
+      if (skippedExisting.length) reasons.push(`${skippedExisting.join(', ')} already filled in`);
+      if (!importedCount) reasons.push('no public non-fork repos found');
+      showToast(`⚠️ Nothing new to import — ${reasons.join('; ')}`, 'error');
+    }
 
   } catch (err) {
     showToast('❌ ' + err.message, 'error');
