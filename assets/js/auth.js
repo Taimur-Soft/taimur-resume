@@ -632,6 +632,7 @@ async function openMyResumes() {
         <div class="my-resume-actions">
           <button onclick="loadCloudResume('${r.id}')" class="btn-icon" title="Load"><i class="fas fa-folder-open"></i></button>
           <button onclick="startRenameResume(this)" class="btn-icon" title="Rename"><i class="fas fa-pen"></i></button>
+          <button onclick="duplicateCloudResume('${r.id}')" class="btn-icon" title="Duplicate"><i class="fas fa-clone"></i></button>
           <button onclick="deleteCloudResume('${r.id}')" class="remove-btn" title="Delete"><i class="fas fa-trash-alt"></i></button>
         </div>
       </div>`).join('');
@@ -740,6 +741,32 @@ async function loadCloudResume(id, { silent = false } = {}) {
     // Silent (auto) load failing just leaves a blank form — no need to
     // alarm the user over something they didn't explicitly trigger.
     if (!silent) showToast('❌ Could not load: ' + err.message, 'error');
+  }
+}
+
+// Clones a saved resume into a brand new cloud row (same data, "(Copy)"
+// appended to the name) so the user can start a variant — e.g. a
+// role-specific version — without retyping everything. The original row
+// is untouched; nothing about the currently-open form changes either.
+async function duplicateCloudResume(id) {
+  try {
+    const { data: row, error } = await supabaseClient
+      .from('resumes')
+      .select('name, data')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+
+    const newName = `${row.name || 'Untitled Resume'} (Copy)`;
+    const { error: insertError } = await supabaseClient
+      .from('resumes')
+      .insert({ user_id: currentUser.id, name: newName, data: row.data });
+    if (insertError) throw insertError;
+
+    showToast('✅ Resume duplicated', 'success');
+    openMyResumes(); // refresh the list to show the new copy
+  } catch (err) {
+    showToast('❌ Could not duplicate: ' + err.message, 'error');
   }
 }
 
