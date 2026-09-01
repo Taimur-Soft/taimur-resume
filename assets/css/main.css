@@ -53,6 +53,15 @@ button { cursor: pointer; border: none; font-family: inherit; }
 .brand-name { font-weight: 600; font-size: 16px; }
 .brand-name em { color: var(--primary); font-style: normal; }
 
+.active-resume-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 500; color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  padding: 4px 10px; border-radius: 99px; white-space: nowrap;
+  max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+}
+.active-resume-label i { font-size: 11px; }
+
 .nav-progress { flex: 1; display: flex; align-items: center; gap: 10px; max-width: 400px; }
 .progress-label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
 .progress-bar { flex: 1; height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
@@ -594,6 +603,7 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 @media (max-width: 960px) {
   :root { --sidebar-w: 180px; --preview-w: 320px; }
   .brand-name { display: none; }
+  .active-resume-label { max-width: 140px; }
 }
 
 /* ── MOBILE ──────────────────────────────────────────── */
@@ -606,6 +616,7 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
   .app-sidebar { display: none; }
   .app-navbar { padding: 0 12px; gap: 8px; }
   .nav-progress { display: none; }
+  .active-resume-label { display: none !important; }
   .nav-actions {
     gap: 6px;
     overflow-x: auto;
