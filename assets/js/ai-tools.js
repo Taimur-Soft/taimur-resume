@@ -116,12 +116,87 @@ async function checkGrammar(text) {
 // ── 3. TONE CHECKER (Google Gemini) ───────────────────
 // "gemini-flash-latest" is Google's alias for the current Flash model, so
 // the tool keeps working when older model versions are retired (as
-// gemini-1.5-flash was).
+// gemini-1.5-flash was). If it stays overloaded, fall back to a smaller
+// model, which usually has spare capacity.
 const GEMINI_MODEL = 'gemini-flash-latest';
+const GEMINI_FALLBACK_MODEL = 'gemini-2.5-flash-lite';
 
-async function checkToneWithGemini(text, apiKey) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+// Waits before each retry of the same model (exponential backoff, as
+// Google's troubleshooting guide recommends for 429 / 5xx errors).
+const GEMINI_RETRY_DELAYS_MS = [1000, 2000, 4000];
 
+class GeminiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.status = status;
+  }
+}
+
+// 429 (rate limit), 408 (timeout) and 5xx (server busy) are temporary.
+// Others, such as 400/403 for a bad key, will fail the same way every time.
+function isRetryableGeminiStatus(status) {
+  return status === 429 || status === 408 || status >= 500;
+}
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function callGemini(model, body, apiKey) {
+  let response;
+  try {
+    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: 'POST',
+      // Key goes in a header rather than the URL, so it doesn't end up in
+      // browser history, logs, or error messages that echo the URL.
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify(body)
+    });
+  } catch (e) {
+    throw new GeminiError('Could not reach Gemini. Check your internet connection.', 0);
+  }
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new GeminiError(err.error?.message || `Gemini API error (${response.status})`, response.status);
+  }
+  return response.json();
+}
+
+// Tries the main model with retries, then the fallback model once.
+// onStatus(text) lets the caller show progress while it waits.
+async function callGeminiWithRetry(body, apiKey, onStatus = () => {}) {
+  let lastError;
+  for (let attempt = 0; attempt <= GEMINI_RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      return await callGemini(GEMINI_MODEL, body, apiKey);
+    } catch (e) {
+      lastError = e;
+      if (!isRetryableGeminiStatus(e.status)) throw e;
+      if (attempt < GEMINI_RETRY_DELAYS_MS.length) {
+        const wait = GEMINI_RETRY_DELAYS_MS[attempt];
+        onStatus(`Gemini is busy, retrying in ${wait / 1000}s (attempt ${attempt + 2} of ${GEMINI_RETRY_DELAYS_MS.length + 1})...`);
+        await sleep(wait);
+      }
+    }
+  }
+  onStatus('Gemini is still busy, trying a lighter model...');
+  try {
+    return await callGemini(GEMINI_FALLBACK_MODEL, body, apiKey);
+  } catch (e) {
+    // Report the main model's error: the key already worked there, so a
+    // fallback-only failure (e.g. that model isn't enabled for this key)
+    // shouldn't be shown as "your key is wrong".
+    throw lastError;
+  }
+}
+
+// A hint that matches what actually went wrong, instead of always blaming the key.
+function geminiErrorHint(status) {
+  if (status === 400 || status === 401 || status === 403) return 'Check that your Gemini API key above is correct.';
+  if (status === 429) return 'You have hit the free usage limit for now. Wait a minute and try again.';
+  if (status >= 500) return "Google's servers are busy right now. Your key is fine, please try again in a minute.";
+  return 'Please try again.';
+}
+
+async function checkToneWithGemini(text, apiKey, onStatus) {
   const prompt = `You are a professional resume writing expert. Analyze the following resume content and provide:
 1. Overall tone assessment (Professional/Casual/Weak/Strong)
 2. Top 3 specific improvements for tone and impact
@@ -143,25 +218,13 @@ Respond in this exact JSON format:
   "summary": "One sentence overall assessment"
 }`;
 
-  const response = await fetch(url, {
-    method: 'POST',
-    // Key goes in a header rather than the URL, so it doesn't end up in
-    // browser history, logs, or error messages that echo the URL.
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      // Newer models spend part of the token budget on internal reasoning,
-      // so 1024 tokens could cut the JSON answer off midway.
-      generationConfig: { temperature: 0.3, maxOutputTokens: 4096, responseMimeType: 'application/json' }
-    })
-  });
+  const data = await callGeminiWithRetry({
+    contents: [{ parts: [{ text: prompt }] }],
+    // Newer models spend part of the token budget on internal reasoning,
+    // so 1024 tokens could cut the JSON answer off midway.
+    generationConfig: { temperature: 0.3, maxOutputTokens: 4096, responseMimeType: 'application/json' }
+  }, apiKey, onStatus);
 
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.error?.message || `Gemini API error (${response.status})`);
-  }
-
-  const data = await response.json();
   const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
   // Parse JSON from response
@@ -196,20 +259,25 @@ async function checkGrammarAndTone() {
     // Step 1: Grammar check (LanguageTool - free, no key)
     const grammarIssues = await checkGrammar(resumeText);
 
-    resultDiv.innerHTML = `
-      <div class="ai-loading">
-        <i class="fas fa-spinner fa-spin"></i>
-        <span>Checking tone with Gemini AI...</span>
-      </div>`;
+    const showLoading = (message) => {
+      resultDiv.innerHTML = `
+        <div class="ai-loading">
+          <i class="fas fa-spinner fa-spin"></i>
+          <span>${escapeHTML(message)}</span>
+        </div>`;
+    };
+    showLoading('Checking tone with Gemini AI...');
 
     // Step 2: Tone check (Gemini - needs key)
     let toneData = null;
     let toneError = null;
+    let toneErrorHint = '';
     if (apiKey) {
       try {
-        toneData = await checkToneWithGemini(resumeText, apiKey);
+        toneData = await checkToneWithGemini(resumeText, apiKey, showLoading);
       } catch (e) {
         toneError = e.message;
+        toneErrorHint = geminiErrorHint(e.status);
       }
     }
 
@@ -251,7 +319,7 @@ async function checkGrammarAndTone() {
           </div>` : ''}
         </div>`
       : toneError
-        ? `<div class="tone-error">⚠️ Gemini: ${escapeHTML(toneError)}<br><small>Check that your Gemini API key above is correct</small></div>`
+        ? `<div class="tone-error">⚠️ Gemini: ${escapeHTML(toneError)}<br><small>${escapeHTML(toneErrorHint)}</small></div>`
         : `<div class="tone-error">ℹ️ Enter your Gemini API key above to enable tone analysis</div>`;
 
     resultDiv.innerHTML = grammarHtml + toneHtml;
