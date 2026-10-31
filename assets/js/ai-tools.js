@@ -2,7 +2,7 @@
 // AI Tools Module
 // 1. ATS Score — client-side keyword matching (free)
 // 2. Grammar Checker — LanguageTool public API (no key)
-// 3. Tone Checker — Google Gemini 1.5 Flash (free key)
+// 3. Tone Checker — Google Gemini Flash (free key)
 // ======================================================
 
 // ── 1. ATS SCORE ──────────────────────────────────────
@@ -72,10 +72,25 @@ function checkATS() {
   `;
 }
 
-// Helper: get all resume text as a single string
+// Helper: get the resume's own text as a single string.
+// Built from collectFormData() so it only contains resume content. Reading
+// every .form-input on the page would also pick up the job description
+// (making every ATS keyword "match"), the Gemini API key, and any sign-in
+// or account fields, and send them to LanguageTool and Gemini.
 function getResumeText() {
-  const inputs = document.querySelectorAll('.form-input, textarea');
-  return Array.from(inputs).map(i => i.value || '').join(' ');
+  const data = collectFormData();
+  const skipKeys = new Set(['image', 'level', 'link', 'current']);
+  const parts = [];
+  const walk = (value) => {
+    if (typeof value === 'string') { if (value.trim()) parts.push(value.trim()); }
+    else if (Array.isArray(value)) value.forEach(walk);
+    else if (value && typeof value === 'object') {
+      for (const [key, v] of Object.entries(value)) if (!skipKeys.has(key)) walk(v);
+    }
+  };
+  walk([data.personal, data.experiences, data.educations, data.skills,
+        data.projects, data.achievements, data.customSections]);
+  return parts.join('\n');
 }
 
 
@@ -98,9 +113,14 @@ async function checkGrammar(text) {
 }
 
 
-// ── 3. TONE CHECKER (Google Gemini 1.5 Flash) ─────────
+// ── 3. TONE CHECKER (Google Gemini) ───────────────────
+// "gemini-flash-latest" is Google's alias for the current Flash model, so
+// the tool keeps working when older model versions are retired (as
+// gemini-1.5-flash was).
+const GEMINI_MODEL = 'gemini-flash-latest';
+
 async function checkToneWithGemini(text, apiKey) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
   const prompt = `You are a professional resume writing expert. Analyze the following resume content and provide:
 1. Overall tone assessment (Professional/Casual/Weak/Strong)
@@ -125,16 +145,20 @@ Respond in this exact JSON format:
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    // Key goes in a header rather than the URL, so it doesn't end up in
+    // browser history, logs, or error messages that echo the URL.
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.3, maxOutputTokens: 1024 }
+      // Newer models spend part of the token budget on internal reasoning,
+      // so 1024 tokens could cut the JSON answer off midway.
+      generationConfig: { temperature: 0.3, maxOutputTokens: 4096, responseMimeType: 'application/json' }
     })
   });
 
   if (!response.ok) {
-    const err = await response.json();
-    throw new Error(err.error?.message || 'Gemini API error');
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Gemini API error (${response.status})`);
   }
 
   const data = await response.json();
@@ -195,13 +219,13 @@ async function checkGrammarAndTone() {
           <h5>📝 Grammar Issues Found (${grammarIssues.length})</h5>
           ${grammarIssues.slice(0, 8).map(issue => `
             <div class="grammar-issue">
-              <span class="issue-text">"${issue.context?.text?.slice(
+              <span class="issue-text">"${escapeHTML(issue.context?.text?.slice(
                 issue.context.offset,
                 issue.context.offset + issue.context.length
-              )}"</span>
-              <span class="issue-msg">${issue.message}</span>
+              ))}"</span>
+              <span class="issue-msg">${escapeHTML(issue.message)}</span>
               ${issue.replacements?.length > 0
-                ? `<span class="issue-fix">Suggestion: <strong>${issue.replacements.slice(0,3).map(r=>r.value).join(', ')}</strong></span>`
+                ? `<span class="issue-fix">Suggestion: <strong>${escapeHTML(issue.replacements.slice(0,3).map(r=>r.value).join(', '))}</strong></span>`
                 : ''}
             </div>`).join('')}
         </div>`
@@ -211,29 +235,29 @@ async function checkGrammarAndTone() {
       ? `<div class="tone-results">
           <h5>🎯 Tone Analysis (Gemini)</h5>
           <div class="tone-score-row">
-            <span class="tone-badge tone-${toneData.tone?.toLowerCase()}">${toneData.tone}</span>
-            <span class="tone-score">${toneData.toneScore}/100</span>
+            <span class="tone-badge tone-${escapeHTML(String(toneData.tone || '').toLowerCase().replace(/[^a-z]/g, ''))}">${escapeHTML(toneData.tone)}</span>
+            <span class="tone-score">${escapeHTML(toneData.toneScore)}/100</span>
           </div>
-          <p class="tone-summary">${toneData.summary}</p>
+          <p class="tone-summary">${escapeHTML(toneData.summary)}</p>
           ${toneData.improvements?.length > 0 ? `
           <div class="tone-improvements">
             <strong>💡 Improvements:</strong>
-            <ul>${toneData.improvements.map(i => `<li>${i}</li>`).join('')}</ul>
+            <ul>${toneData.improvements.map(i => `<li>${escapeHTML(i)}</li>`).join('')}</ul>
           </div>` : ''}
           ${toneData.powerVerbs?.length > 0 ? `
           <div class="power-verbs">
             <strong>⚡ Power Verbs to Use:</strong>
-            <div class="verb-tags">${toneData.powerVerbs.map(v => `<span class="verb-tag">${v}</span>`).join('')}</div>
+            <div class="verb-tags">${toneData.powerVerbs.map(v => `<span class="verb-tag">${escapeHTML(v)}</span>`).join('')}</div>
           </div>` : ''}
         </div>`
       : toneError
-        ? `<div class="tone-error">⚠️ Gemini: ${toneError}<br><small>Add your Gemini API key above to enable tone analysis</small></div>`
+        ? `<div class="tone-error">⚠️ Gemini: ${escapeHTML(toneError)}<br><small>Check that your Gemini API key above is correct</small></div>`
         : `<div class="tone-error">ℹ️ Enter your Gemini API key above to enable tone analysis</div>`;
 
     resultDiv.innerHTML = grammarHtml + toneHtml;
 
   } catch (err) {
-    resultDiv.innerHTML = `<div class="ai-error">❌ Error: ${err.message}</div>`;
+    resultDiv.innerHTML = `<div class="ai-error">❌ Error: ${escapeHTML(err.message)}</div>`;
   }
 }
 
