@@ -21,9 +21,11 @@ A free, browser-based resume builder with a live preview, 15 Europass-format tem
 - **Field validation** for email, phone and URL, shown on blur without blocking input.
 
 ### Smart tools
-- **ATS score checker.** Paste a job description to see what percentage of its keywords appear in your resume, plus a list of missing terms. Runs entirely in the browser.
+- **ATS keyword score.** Paste a job description to see what percentage of its keywords appear in your resume, plus a list of missing terms. Instant, and runs entirely in the browser.
+- **AI job match.** Google Gemini compares the resume with the job by meaning rather than exact words (so "JS" counts as "JavaScript"), gives a match score, lists what matches and which required skills are missing, and rewrites up to three weak bullet points for that job. It is told never to invent experience: where a number would help, it leaves a placeholder such as `[X%]` for the user to fill in.
 - **Grammar check** through the public [LanguageTool](https://languagetool.org) API (no key needed).
-- **Tone analysis** through Google Gemini. Users supply their own free API key, which is stored only in their browser.
+- **Tone analysis** through Google Gemini.
+- Both Gemini tools use the user's own free API key, stored only in their browser. Busy or rate-limited requests are retried with exponential backoff and then fall back to a lighter model.
 - **GitHub import.** Enter a username to fill in name, bio, location and website, and add up to five top non-fork repositories as projects.
 
 ### Accounts and cloud save
@@ -83,7 +85,7 @@ Most of the app runs in the browser. The only server code is `api/shorten.js`, w
 │   └── js/
 │       ├── app.js          Form state, live preview, templates, JSON import/export
 │       ├── auth.js         Sign-up/sign-in, cloud save, My Resumes, account settings
-│       ├── ai-tools.js     ATS score, grammar and tone checks
+│       ├── ai-tools.js     ATS keyword score, AI job match, grammar and tone checks
 │       ├── github-import.js
 │       ├── pdf-export.js
 │       ├── share.js        Link compression, shortening, QR code

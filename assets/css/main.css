@@ -304,6 +304,26 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 .verb-tag { padding: 3px 10px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 99px; font-size: 11px; font-weight: 600; color: var(--success); }
 .tone-error { padding: 12px; background: #f8fafc; border-radius: 8px; font-size: 13px; color: var(--text-muted); }
 
+/* AI Match analysis */
+.ats-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.ats-actions button:disabled { opacity: 0.6; cursor: wait; }
+.ai-match { display: flex; flex-direction: column; gap: 12px; }
+.ai-match-summary { font-size: 13px; color: var(--text); line-height: 1.55; }
+.ai-match-block { padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+.ai-match-block h5 { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.ai-match-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.ai-match-list li { display: flex; flex-direction: column; gap: 1px; font-size: 12px; padding-left: 10px; border-left: 2px solid #86efac; }
+.ai-match-list li span { color: var(--text-muted); }
+.missing-tag-required { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+.ai-rewrite { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-top: 1px dashed var(--border); font-size: 12px; line-height: 1.5; }
+.ai-rewrite:first-of-type { border-top: none; padding-top: 0; }
+.ai-rewrite span { display: inline-block; min-width: 46px; margin-right: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.ai-rewrite-before { color: var(--text-muted); text-decoration: line-through; text-decoration-color: #cbd5e1; }
+.ai-rewrite-before span { color: var(--danger); text-decoration: none; display: inline-block; }
+.ai-rewrite-after { color: var(--text); }
+.ai-rewrite-after span { color: var(--success); }
+.ai-match-tips { padding-left: 18px; font-size: 12px; line-height: 1.6; color: var(--text); }
+
 /* ── EMPTY STATE ─────────────────────────────────────── */
 .empty-state {
   display: flex; flex-direction: column; align-items: center; justify-content: center;

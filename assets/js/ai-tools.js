@@ -3,6 +3,7 @@
 // 1. ATS Score — client-side keyword matching (free)
 // 2. Grammar Checker — LanguageTool public API (no key)
 // 3. Tone Checker — Google Gemini Flash (free key)
+// 4. AI Match Analysis — Gemini compares resume and job by meaning
 // ======================================================
 
 // ── 1. ATS SCORE ──────────────────────────────────────
@@ -225,21 +226,174 @@ Respond in this exact JSON format:
     generationConfig: { temperature: 0.3, maxOutputTokens: 4096, responseMimeType: 'application/json' }
   }, apiKey, onStatus);
 
-  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  return parseGeminiJSON(data);
+}
 
-  // Parse JSON from response
+// Pulls the JSON object out of a Gemini response.
+function parseGeminiJSON(data) {
+  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
   const jsonMatch = rawText.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error('Could not parse Gemini response');
   return JSON.parse(jsonMatch[0]);
 }
 
+// Prefer whatever the user currently has typed in the field — falling back
+// to the previously saved key only if the field is empty. Otherwise typing
+// a new key without clicking "Save" would silently keep using the old one.
+function getGeminiApiKey() {
+  const typed = document.getElementById('geminiApiKey')?.value.trim();
+  if (typed) return typed;
+  try { return localStorage.getItem('geminiApiKey') || ''; } catch (e) { return ''; }
+}
+
+
+// ── 4. AI MATCH ANALYSIS (Gemini) ─────────────────────
+// The keyword score above only counts exact word matches. This asks Gemini
+// to compare meaning instead ("JS" = "JavaScript", "led a team" = "people
+// management"), name the skills that are really missing, and rewrite weak
+// bullet points for this specific job.
+async function analyzeJobMatchWithGemini(resumeText, jobDesc, apiKey, onStatus) {
+  const prompt = `You are an experienced recruiter and ATS (applicant tracking system) expert.
+Compare the candidate's resume with the job description and judge how well they fit, based on meaning rather than exact wording. Treat synonyms, abbreviations and related technologies as matches (for example "JS" and "JavaScript", "Postgres" and "PostgreSQL").
+
+Rules:
+- Only use facts that appear in the resume. Never invent experience, employers, numbers or skills.
+- In rewritten bullets, where a number would make the point stronger but the resume gives none, write a placeholder in square brackets such as [X%] or [number of users] for the candidate to fill in.
+- Rewrite at most 3 bullets, choosing the weakest sentences from the resume that matter most for this job. Use a strong action verb and show impact.
+- Keep every string short and specific.
+
+Resume:
+"""
+${resumeText.slice(0, 6000)}
+"""
+
+Job description:
+"""
+${jobDesc.slice(0, 6000)}
+"""
+
+Respond only with JSON in exactly this shape:
+{
+  "matchScore": 0-100 integer,
+  "verdict": "Strong match" | "Good match" | "Partial match" | "Weak match",
+  "summary": "Two sentences on overall fit",
+  "matchedSkills": [{"job": "requirement as written in the job", "resume": "matching evidence from the resume"}],
+  "missingSkills": [{"skill": "important requirement not shown in the resume", "importance": "required" | "nice to have"}],
+  "bulletRewrites": [{"original": "sentence from the resume", "improved": "rewritten version"}],
+  "tips": ["short, specific tip", "..."]
+}`;
+
+  const data = await callGeminiWithRetry({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.2, maxOutputTokens: 8192, responseMimeType: 'application/json' }
+  }, apiKey, onStatus);
+
+  return parseGeminiJSON(data);
+}
+
+async function checkATSWithAI() {
+  const jobDesc = document.getElementById('jobDescription').value.trim();
+  if (!jobDesc) {
+    showToast('Please paste a job description first', 'error');
+    return;
+  }
+  const resumeText = getResumeText();
+  if (resumeText.length < 50) {
+    showToast('Please fill in more of your resume first', 'error');
+    return;
+  }
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    showToast('Add your free Gemini API key in "Grammar & Tone Checker" below first', 'error');
+    document.getElementById('geminiApiKey')?.focus();
+    return;
+  }
+
+  const btn = document.getElementById('atsAiBtn');
+  const resultDiv = document.getElementById('atsAiResult');
+  const showLoading = (message) => {
+    resultDiv.innerHTML = `
+      <div class="ai-loading">
+        <i class="fas fa-spinner fa-spin"></i>
+        <span>${escapeHTML(message)}</span>
+      </div>`;
+  };
+  resultDiv.style.display = 'block';
+  showLoading('Gemini is comparing your resume with the job...');
+  if (btn) btn.disabled = true;
+
+  try {
+    const result = await analyzeJobMatchWithGemini(resumeText, jobDesc, apiKey, showLoading);
+    resultDiv.innerHTML = renderAIMatch(result);
+  } catch (e) {
+    resultDiv.innerHTML = `<div class="tone-error">⚠️ Gemini: ${escapeHTML(e.message)}<br><small>${escapeHTML(geminiErrorHint(e.status))}</small></div>`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function renderAIMatch(r) {
+  const list = (v) => Array.isArray(v) ? v : [];
+  const score = Math.max(0, Math.min(100, Math.round(Number(r.matchScore) || 0)));
+  const color = score >= 70 ? '#16a34a' : score >= 50 ? '#d97706' : '#dc2626';
+  const matched = list(r.matchedSkills).slice(0, 12);
+  const missing = list(r.missingSkills).slice(0, 10);
+  const rewrites = list(r.bulletRewrites).slice(0, 3);
+  const tips = list(r.tips).slice(0, 5);
+
+  return `
+    <div class="ai-match">
+      <div class="ats-score-display">
+        <div class="ats-score-circle" style="border-color:${color}; color:${color}">
+          <span class="ats-score-num">${score}%</span>
+          <span class="ats-score-lbl">AI Match</span>
+        </div>
+        <div class="ats-score-details">
+          <div class="ats-label" style="color:${color}">${escapeHTML(r.verdict || '')}</div>
+          <p class="ai-match-summary">${escapeHTML(r.summary || '')}</p>
+        </div>
+      </div>
+
+      ${matched.length ? `
+      <div class="ai-match-block">
+        <h5>✅ What matches</h5>
+        <ul class="ai-match-list">
+          ${matched.map(m => `<li><strong>${escapeHTML(m.job)}</strong><span>${escapeHTML(m.resume)}</span></li>`).join('')}
+        </ul>
+      </div>` : ''}
+
+      ${missing.length ? `
+      <div class="ai-match-block">
+        <h5>⚡ Missing from your resume</h5>
+        <div class="missing-tags">
+          ${missing.map(m => `<span class="missing-tag${m.importance === 'required' ? ' missing-tag-required' : ''}" title="${escapeHTML(m.importance || '')}">${escapeHTML(m.skill)}${m.importance === 'required' ? ' · required' : ''}</span>`).join('')}
+        </div>
+        <p class="hint-text" style="margin-top:6px">Only add these if you really have the skill.</p>
+      </div>` : ''}
+
+      ${rewrites.length ? `
+      <div class="ai-match-block">
+        <h5>✍️ Stronger bullet points</h5>
+        ${rewrites.map(b => `
+          <div class="ai-rewrite">
+            <div class="ai-rewrite-before"><span>Before</span>${escapeHTML(b.original)}</div>
+            <div class="ai-rewrite-after"><span>After</span>${escapeHTML(b.improved)}</div>
+          </div>`).join('')}
+        <p class="hint-text" style="margin-top:6px">Replace anything in [brackets] with your real numbers.</p>
+      </div>` : ''}
+
+      ${tips.length ? `
+      <div class="ai-match-block">
+        <h5>💡 Tips for this job</h5>
+        <ul class="ai-match-tips">${tips.map(t => `<li>${escapeHTML(t)}</li>`).join('')}</ul>
+      </div>` : ''}
+    </div>`;
+}
+
 
 // ── COMBINED: Grammar + Tone ───────────────────────────
 async function checkGrammarAndTone() {
-  // Prefer whatever the user currently has typed in the field — falling back
-  // to the previously saved key only if the field is empty. Otherwise typing
-  // a new key without clicking "Save" would silently keep using the old one.
-  const apiKey = document.getElementById('geminiApiKey').value.trim() || localStorage.getItem('geminiApiKey') || '';
+  const apiKey = getGeminiApiKey();
   const resumeText = getResumeText();
 
   if (!resumeText || resumeText.trim().length < 50) {

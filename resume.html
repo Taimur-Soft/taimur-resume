@@ -351,14 +351,20 @@
 
         <!-- ATS Score -->
         <div class="ai-tool-card">
-          <h4><i class="fas fa-chart-bar" style="color:#2563eb"></i> ATS Score Checker</h4>
-          <p class="hint-text">Paste a job description to check keyword match. Completely free — runs in your browser.</p>
+          <h4><i class="fas fa-chart-bar" style="color:#2563eb"></i> ATS Match Checker</h4>
+          <p class="hint-text">Paste a job description. <strong>Keyword Score</strong> is instant and runs in your browser. <strong>AI Match</strong> uses Gemini to compare meaning, find missing skills, and rewrite weak bullet points (needs the free Gemini key below).</p>
           <textarea id="jobDescription" class="form-input" rows="5"
             placeholder="Paste the full job description here...&#10;&#10;e.g. We are looking for a Software Engineer with experience in React, Node.js, and REST APIs..."></textarea>
-          <button onclick="checkATS()" class="btn-primary" style="margin-top:10px">
-            <i class="fas fa-search"></i> Check ATS Score
-          </button>
+          <div class="ats-actions">
+            <button onclick="checkATS()" class="btn-secondary">
+              <i class="fas fa-search"></i> Keyword Score
+            </button>
+            <button onclick="checkATSWithAI()" id="atsAiBtn" class="btn-primary">
+              <i class="fas fa-wand-magic-sparkles"></i> AI Match
+            </button>
+          </div>
           <div id="atsResult" style="display:none;margin-top:16px"></div>
+          <div id="atsAiResult" style="display:none;margin-top:16px"></div>
         </div>
 
         <!-- Grammar & Tone -->
