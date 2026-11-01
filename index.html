@@ -44,7 +44,7 @@
     .nav-cta {
       display: inline-flex; align-items: center; gap: 8px;
       padding: 10px 20px; background: var(--gold); color: var(--on-gold);
-      border-radius: 99px; font-weight: 700; font-size: 14px;
+      border-radius: 99px; font-weight: 700; font-size: 14px; white-space: nowrap;
       text-decoration: none; transition: background 0.15s, box-shadow 0.15s;
     }
     .nav-cta i { transition: transform 0.15s; }
@@ -202,6 +202,14 @@
       .nav-actions { gap: 6px; }
       .nav-signin, .nav-signup, .nav-divider { display: none; }
       .nav-cta { padding: 9px 14px; font-size: 13px; }
+    }
+    @media (max-width: 360px) {
+      nav { padding: 0 12px; }
+      .nav-cta { padding: 8px 12px; }
+      .nav-cta i { display: none; }
+    }
+    @media (max-width: 480px) {
+      .nav-logo .logo-text { display: none; }
       .stats { gap: 28px; }
     }
   </style>
@@ -224,7 +232,7 @@
       <span class="nav-divider" aria-hidden="true"></span>
       <a href="resume.html#signin" class="nav-signin">Sign in</a>
       <a href="resume.html#signup" class="nav-signup">Sign up</a>
-      <a href="resume.html" class="nav-cta">Build your resume <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+      <a href="resume.html" class="nav-cta">Build My Resume, Free <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
     </div>
   </nav>
 
