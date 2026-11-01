@@ -39,9 +39,9 @@ function cleanRequest(body) {
     maxOutputTokens: Math.min(8192, Math.max(256, parseInt(g.maxOutputTokens, 10) || 2048))
   };
   if (g.responseMimeType === 'application/json') generationConfig.responseMimeType = 'application/json';
-  if (['low', 'medium', 'high'].includes(g.thinkingConfig?.thinkingLevel)) {
-    generationConfig.thinkingConfig = { thinkingLevel: g.thinkingConfig.thinkingLevel };
-  }
+  // Always "low" thinking on the shared key: much faster, and the long
+  // default thinking was what pushed requests past the time limit.
+  generationConfig.thinkingConfig = { thinkingLevel: 'low' };
   return { request: { contents: [{ parts: [{ text: prompt }] }], generationConfig } };
 }
 
@@ -50,25 +50,46 @@ function withoutThinking(request) {
   return { ...request, generationConfig };
 }
 
-async function callGemini(model, request, apiKey) {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-    body: JSON.stringify(request)
-  });
-  const data = await res.json().catch(() => ({}));
-  return { status: res.status, data };
+// Each Gemini call gets at most `timeoutMs`; a slow call counts as "busy"
+// (408) so the next step can try again or switch to the faster model.
+async function callGemini(model, request, apiKey, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(1000, timeoutMs));
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify(request),
+      signal: controller.signal
+    });
+    const data = await res.json().catch(() => ({}));
+    return { status: res.status, data };
+  } catch (err) {
+    return { status: 408, data: { error: { message: err.name === 'AbortError' ? 'Timed out' : String(err.message || err) } } };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 const retryable = (s) => s === 429 || s === 408 || s >= 500;
 
-// Main model with a couple of retries, then the lighter model once. Done
-// here (not in the browser) so one click uses one unit of the daily limit.
+// The whole answer has to arrive well inside Vercel's 60 s function limit,
+// otherwise Vercel cuts the request off with a bare 504.
+const TOTAL_BUDGET_MS = 50000;
+const MAIN_CALL_MAX_MS = 30000;
+const FALLBACK_MIN_MS = 12000;
+
+// Main model first (retried only while there's time), then the lighter,
+// faster model with whatever time is left. Done here, not in the browser,
+// so one click uses one unit of the daily limit.
 async function generate(request, apiKey) {
+  const deadline = Date.now() + TOTAL_BUDGET_MS;
+  const left = () => deadline - Date.now();
   let req = request;
   let last;
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
-    last = await callGemini(MAIN_MODEL, req, apiKey);
+    if (left() < FALLBACK_MIN_MS + 8000) break; // keep time for the fallback
+    last = await callGemini(MAIN_MODEL, req, apiKey, Math.min(MAIN_CALL_MAX_MS, left() - FALLBACK_MIN_MS));
     if (last.status === 200) return last;
     if (last.status === 400 && req.generationConfig.thinkingConfig) {
       req = withoutThinking(req);
@@ -76,10 +97,13 @@ async function generate(request, apiKey) {
       continue;
     }
     if (!retryable(last.status)) return last;
+    // A timeout means the model is slow right now: go straight to the
+    // faster model instead of waiting again.
+    if (last.status === 408) break;
     if (attempt < RETRY_DELAYS_MS.length) await sleep(RETRY_DELAYS_MS[attempt]);
   }
-  const fallback = await callGemini(FALLBACK_MODEL, withoutThinking(req), apiKey);
-  return fallback.status === 200 ? fallback : last;
+  const fallback = await callGemini(FALLBACK_MODEL, withoutThinking(req), apiKey, left());
+  return fallback.status === 200 ? fallback : (last || fallback);
 }
 
 export default async function handler(req, res) {
@@ -154,6 +178,9 @@ export default async function handler(req, res) {
     }
     if (status === 429) {
       return res.status(503).json({ error: 'The free AI service is very busy right now. Please try again in a minute.' });
+    }
+    if (status === 408) {
+      return res.status(503).json({ error: 'Gemini is taking too long right now. Please try again in a minute.' });
     }
     return res.status(503).json({ error: 'Google\'s AI servers are busy right now. Please try again in a minute.' });
   } catch (err) {

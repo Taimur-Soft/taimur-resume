@@ -293,7 +293,10 @@ async function callSiteGemini(body, onStatus = () => {}) {
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const err = new GeminiError(data.error || `AI service error (${response.status})`, response.status);
+    const fallbackMsg = response.status === 504
+      ? 'The AI took too long to answer. Please try again; it is usually faster the second time.'
+      : `AI service error (${response.status}). Please try again.`;
+    const err = new GeminiError(data.error || fallbackMsg, response.status);
     err.site = true;
     err.code = data.code;
     throw err;
