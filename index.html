@@ -4,116 +4,123 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Taimur Rahman Resume Builder</title>
+  <script src="assets/js/theme.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="assets/css/theme.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Inter', sans-serif; background: #f1f5f9; color: #1e293b; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
 
     /* Navbar */
     nav {
-      background: white; padding: 0 40px; height: 64px;
+      background: var(--surface); padding: 0 40px; height: 64px;
       display: flex; align-items: center; justify-content: space-between;
-      border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 10;
-      box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+      border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10;
+      box-shadow: var(--shadow);
     }
     .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
     .logo-icon {
       width: 38px; height: 38px; border-radius: 9px;
-      background: linear-gradient(135deg, #2563eb, #7c3aed);
-      color: white; font-weight: 800; font-size: 15px;
+      background: var(--logo-bg); color: var(--logo-fg);
+      font-weight: 800; font-size: 15px;
       display: flex; align-items: center; justify-content: center;
     }
-    .logo-text em { color: #2563eb; font-style: normal; }
+    .logo-text em { color: var(--primary); font-style: normal; }
     .nav-cta {
-      padding: 10px 24px; background: #2563eb; color: white;
+      padding: 10px 24px; background: var(--primary-fill); color: var(--on-primary);
       border-radius: 9px; font-weight: 600; font-size: 14px;
       text-decoration: none; transition: background 0.15s;
     }
-    .nav-cta:hover { background: #1d4ed8; }
+    .nav-cta:hover { background: var(--primary-fill-hover); }
     .nav-actions { display: flex; align-items: center; gap: 14px; }
     .nav-signin {
       display: inline-flex; align-items: center; gap: 7px;
-      padding: 9px 20px; color: #334155; font-weight: 600; font-size: 14px;
-      text-decoration: none; border: 1.5px solid #e2e8f0; border-radius: 9px;
-      background: white;
+      padding: 9px 20px; color: var(--text); font-weight: 600; font-size: 14px;
+      text-decoration: none; border: 1.5px solid var(--border); border-radius: 9px;
+      background: var(--surface);
       transition: border-color 0.15s, color 0.15s, background 0.15s, transform 0.15s;
     }
     .nav-signin i { font-size: 13px; }
     .nav-signin:hover {
-      border-color: #2563eb; color: #2563eb; background: #eff6ff;
+      border-color: var(--primary); color: var(--primary); background: var(--primary-soft);
       transform: translateY(-1px);
     }
     .nav-signup {
       display: inline-flex; align-items: center; gap: 7px;
-      padding: 9px 20px; color: #7c3aed; font-weight: 600; font-size: 14px;
-      text-decoration: none; border: 1.5px solid #ddd6fe; border-radius: 9px;
-      background: #f5f3ff;
+      padding: 9px 20px; color: var(--text); font-weight: 600; font-size: 14px;
+      text-decoration: none; border-radius: 9px;
+      border: 1.5px solid color-mix(in srgb, var(--gold) 60%, var(--surface));
+      background: color-mix(in srgb, var(--gold) 16%, var(--surface));
       transition: border-color 0.15s, background 0.15s, transform 0.15s;
     }
     .nav-signup i { font-size: 13px; }
     .nav-signup:hover {
-      border-color: #7c3aed; background: #ede9fe;
+      border-color: var(--gold); background: color-mix(in srgb, var(--gold) 28%, var(--surface));
       transform: translateY(-1px);
     }
 
-    /* Hero */
+    /* Hero: EU navy with gold highlights */
     .hero {
-      text-align: center; padding: 80px 20px 60px;
-      background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+      text-align: center; padding: 80px 20px 64px;
+      background: radial-gradient(ellipse at top, var(--chrome-bg-2) 0%, var(--chrome-bg) 70%);
+      color: var(--chrome-text);
     }
     .hero-badge {
       display: inline-block; padding: 6px 16px; border-radius: 99px;
-      background: #eff6ff; border: 1px solid #bfdbfe; color: #2563eb;
+      background: rgba(245, 183, 0, 0.14); border: 1px solid rgba(245, 183, 0, 0.45); color: var(--gold);
       font-size: 13px; font-weight: 600; margin-bottom: 24px;
     }
-    .hero h1 { font-size: clamp(32px, 5vw, 52px); font-weight: 800; line-height: 1.15; max-width: 700px; margin: 0 auto 20px; }
-    .hero h1 span { color: #2563eb; }
-    .hero p { font-size: 18px; color: #64748b; max-width: 540px; margin: 0 auto 36px; line-height: 1.7; }
+    .hero h1 { font-size: clamp(32px, 5vw, 52px); font-weight: 800; line-height: 1.15; max-width: 700px; margin: 0 auto 20px; text-wrap: balance; }
+    .hero h1 span { color: var(--gold); }
+    .hero p { font-size: 18px; color: var(--chrome-text-muted); max-width: 540px; margin: 0 auto 36px; line-height: 1.7; }
     .hero-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
     .btn-hero {
       padding: 14px 32px; border-radius: 10px; font-size: 16px; font-weight: 700;
       text-decoration: none; transition: all 0.15s; display: flex; align-items: center; gap: 8px;
     }
-    .btn-hero-primary { background: #2563eb; color: white; box-shadow: 0 4px 16px rgba(37,99,235,0.35); }
-    .btn-hero-primary:hover { background: #1d4ed8; transform: translateY(-1px); }
-    .btn-hero-outline { background: white; color: #1e293b; border: 2px solid #e2e8f0; }
-    .btn-hero-outline:hover { border-color: #2563eb; color: #2563eb; }
+    .btn-hero:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(245, 183, 0, 0.5); }
+    .btn-hero-primary { background: var(--gold); color: var(--on-gold); box-shadow: 0 4px 18px rgba(245, 183, 0, 0.3); }
+    .btn-hero-primary:hover { background: var(--gold-hover); transform: translateY(-1px); }
+    .btn-hero-outline { background: transparent; color: var(--chrome-text); border: 2px solid rgba(255, 255, 255, 0.28); }
+    .btn-hero-outline:hover { border-color: var(--gold); color: var(--gold); }
 
     /* Stats */
-    .stats { display: flex; gap: 48px; justify-content: center; padding: 32px 20px; background: white; border-top: 1px solid #e2e8f0; flex-wrap: wrap; }
+    .stats { display: flex; gap: 48px; justify-content: center; padding: 32px 20px; background: var(--surface); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
     .stat { text-align: center; }
-    .stat-num { font-size: 28px; font-weight: 800; color: #2563eb; }
-    .stat-label { font-size: 13px; color: #64748b; margin-top: 2px; }
+    .stat-num { font-size: 28px; font-weight: 800; color: var(--primary); }
+    .stat-label { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
 
     /* Features */
     .features { padding: 72px 20px; max-width: 1100px; margin: 0 auto; }
     .section-title { text-align: center; margin-bottom: 48px; }
     .section-title h2 { font-size: 32px; font-weight: 800; margin-bottom: 10px; }
-    .section-title p { color: #64748b; font-size: 16px; }
+    .section-title p { color: var(--text-muted); font-size: 16px; }
     .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
     .feature-card {
-      background: white; border-radius: 14px; padding: 28px;
-      border: 1px solid #e2e8f0; box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-      transition: transform 0.15s, box-shadow 0.15s;
+      background: var(--surface); border-radius: 14px; padding: 28px;
+      border: 1px solid var(--border); box-shadow: var(--shadow);
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
     }
-    .feature-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+    .feature-card:hover { transform: translateY(-3px); border-color: var(--primary-soft-border); }
     .feature-icon {
       width: 48px; height: 48px; border-radius: 12px; margin-bottom: 16px;
       display: flex; align-items: center; justify-content: center; font-size: 20px;
+      background: var(--primary-soft); color: var(--primary);
     }
+    .feature-icon-gold { background: color-mix(in srgb, var(--gold) 18%, var(--surface)); color: var(--warning-ink); }
     .feature-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
-    .feature-card p { font-size: 14px; color: #64748b; line-height: 1.6; }
+    .feature-card p { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
 
     /* Templates Preview */
-    .templates-section { background: white; padding: 72px 20px; border-top: 1px solid #e2e8f0; }
+    .templates-section { background: var(--surface); padding: 72px 20px; border-top: 1px solid var(--border); }
     .templates-row { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; max-width: 900px; margin: 0 auto; }
     .template-preview {
-      width: 140px; text-align: center;
-      border: 2px solid #e2e8f0; border-radius: 12px; overflow: hidden;
+      width: 140px; text-align: center; background: var(--surface);
+      border: 2px solid var(--border); border-radius: 12px; overflow: hidden;
       transition: border-color 0.15s; cursor: pointer;
     }
-    .template-preview:hover { border-color: #2563eb; }
+    .template-preview:hover { border-color: var(--gold); }
     .tp-thumb { height: 100px; }
     .tp-thumb-aurora { background: linear-gradient(to right, #0f172a 38%, #f5f5f5 38%); }
     .tp-thumb-emerald { background: linear-gradient(to right, #064e3b 38%, #f5f5f5 38%); }
@@ -135,18 +142,28 @@
     /* CTA Section */
     .cta-section {
       text-align: center; padding: 80px 20px;
-      background: linear-gradient(135deg, #1e293b 0%, #1e40af 100%);
-      color: white;
+      background: linear-gradient(135deg, var(--chrome-bg) 0%, var(--chrome-bg-2) 100%);
+      color: var(--chrome-text);
     }
     .cta-section h2 { font-size: 32px; font-weight: 800; margin-bottom: 16px; }
-    .cta-section p { font-size: 16px; opacity: 0.8; margin-bottom: 32px; }
+    .cta-section p { font-size: 16px; color: var(--chrome-text-muted); margin-bottom: 32px; }
 
     /* Footer */
     footer {
-      background: #1e293b; color: #94a3b8;
+      background: var(--chrome-bg); color: var(--chrome-text-muted);
       text-align: center; padding: 24px; font-size: 13px;
+      border-top: 1px solid var(--chrome-border);
     }
-    footer a { color: #60a5fa; text-decoration: none; }
+    footer a { color: var(--gold); text-decoration: none; }
+
+    /* Small screens: keep the nav on one line */
+    @media (max-width: 640px) {
+      nav { padding: 0 16px; }
+      .nav-actions { gap: 8px; }
+      .nav-signin, .nav-signup { display: none; }
+      .nav-cta { padding: 9px 14px; font-size: 13px; }
+      .stats { gap: 28px; }
+    }
   </style>
 </head>
 <body>
@@ -159,6 +176,7 @@
     <div class="nav-actions">
       <a href="resume.html#signin" class="nav-signin"><i class="fas fa-sign-in-alt"></i> Sign In</a>
       <a href="resume.html#signup" class="nav-signup"><i class="fas fa-user-plus"></i> Sign Up</a>
+      <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Switch to dark mode" title="Switch to dark mode"><i class="fas fa-moon"></i></button>
       <a href="resume.html" class="nav-cta"><i class="fas fa-rocket"></i> Build Your Resume</a>
     </div>
   </nav>
@@ -192,42 +210,42 @@
     </div>
     <div class="features-grid">
       <div class="feature-card">
-        <div class="feature-icon" style="background:#eff6ff;color:#2563eb"><i class="fas fa-eye"></i></div>
+        <div class="feature-icon"><i class="fas fa-eye"></i></div>
         <h3>Live Split-View Preview</h3>
         <p>See your resume update in real-time as you type. No refresh needed — what you see is what you get.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon" style="background:#f0fdf4;color:#16a34a"><i class="fas fa-palette"></i></div>
+        <div class="feature-icon feature-icon-gold"><i class="fas fa-palette"></i></div>
         <h3>15 Europass Templates</h3>
         <p>The EU-recognized Europass format in 15 distinct looks. Switch between them instantly.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon" style="background:#fdf4ff;color:#7c3aed"><i class="fas fa-bullseye"></i></div>
+        <div class="feature-icon"><i class="fas fa-bullseye"></i></div>
         <h3>ATS Score + AI Match</h3>
         <p>Get an instant keyword score, then let AI compare your resume with the job, spot missing skills, and rewrite weak bullet points.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon" style="background:#fffbeb;color:#d97706"><i class="fas fa-spell-check"></i></div>
+        <div class="feature-icon feature-icon-gold"><i class="fas fa-spell-check"></i></div>
         <h3>Grammar & Tone Checker</h3>
         <p>LanguageTool grammar check + Gemini AI tone analysis. Write with confidence and impact.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon" style="background:#f0f9ff;color:#0284c7"><i class="fab fa-github"></i></div>
+        <div class="feature-icon"><i class="fab fa-github"></i></div>
         <h3>GitHub Import</h3>
         <p>Enter your GitHub username and auto-import your top projects, repos, bio, and tech stack.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon" style="background:#fff1f2;color:#e11d48"><i class="fas fa-share-alt"></i></div>
+        <div class="feature-icon feature-icon-gold"><i class="fas fa-share-alt"></i></div>
         <h3>Shareable Link + QR Code</h3>
         <p>Generate a compressed shareable URL and QR code. Share your resume anywhere, instantly.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon" style="background:#f0fdf4;color:#16a34a"><i class="fas fa-arrows-up-down-left-right"></i></div>
+        <div class="feature-icon"><i class="fas fa-arrows-up-down-left-right"></i></div>
         <h3>Drag & Drop Sections</h3>
         <p>Reorder any section with drag & drop. Add custom sections like Certifications, Languages, etc.</p>
       </div>
       <div class="feature-card">
-        <div class="feature-icon" style="background:#eff6ff;color:#2563eb"><i class="fas fa-save"></i></div>
+        <div class="feature-icon feature-icon-gold"><i class="fas fa-save"></i></div>
         <h3>Cloud Save + JSON Export</h3>
         <p>Sign in to save your resumes to the cloud. Export as JSON to back up and restore anytime.</p>
       </div>

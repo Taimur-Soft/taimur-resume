@@ -4,38 +4,49 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Resume — Taimur Rahman Builder</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="assets/js/theme.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;600;700&family=Poppins:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Lora:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="assets/css/theme.css">
   <link rel="stylesheet" href="assets/css/main.css">
   <style>
-    body { background: #e8edf4; }
+    body { background: var(--preview-bg); }
     .view-navbar {
-      background: #1e293b; padding: 14px 24px;
-      display: flex; align-items: center; justify-content: space-between;
+      background: var(--chrome-bg); padding: 14px 24px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
       position: sticky; top: 0; z-index: 10;
     }
-    .view-brand { color: white; font-weight: 700; font-size: 15px; text-decoration: none; }
-    .view-actions { display: flex; gap: 10px; }
+    .view-brand { display: flex; align-items: center; gap: 8px; color: var(--chrome-text); font-weight: 700; font-size: 15px; text-decoration: none; }
+    .view-brand-logo {
+      width: 28px; height: 28px; border-radius: 7px; background: var(--gold); color: var(--on-gold);
+      font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center;
+    }
+    .view-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .view-btn {
       padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600;
-      cursor: pointer; display: flex; align-items: center; gap: 6px; border: none;
+      cursor: pointer; display: flex; align-items: center; gap: 6px; border: none; text-decoration: none;
     }
-    .view-btn-primary { background: #2563eb; color: white; }
-    .view-btn-outline { background: transparent; color: white; border: 1.5px solid rgba(255,255,255,0.3); }
+    .view-btn-primary { background: var(--gold); color: var(--on-gold); }
+    .view-btn-primary:hover { background: var(--gold-hover); }
+    .view-btn-outline { background: transparent; color: var(--chrome-text); border: 1.5px solid rgba(255,255,255,0.3); }
+    .view-btn-outline:hover { border-color: var(--gold); color: var(--gold); }
     .view-container { max-width: 700px; margin: 40px auto; padding: 0 20px 60px; }
     .view-error {
-      text-align: center; padding: 80px 20px; color: #64748b;
-      background: white; border-radius: 14px; box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      text-align: center; padding: 80px 20px; color: var(--text-muted);
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow);
     }
-    .view-error i { font-size: 48px; color: #e2e8f0; margin-bottom: 16px; display: block; }
-    .view-error h2 { font-size: 20px; margin-bottom: 8px; }
-    .view-error a { color: #2563eb; font-weight: 600; }
+    .view-error i { font-size: 48px; color: var(--border); margin-bottom: 16px; display: block; }
+    .view-error h2 { font-size: 20px; margin-bottom: 8px; color: var(--text); }
+    .view-error a { color: var(--primary); font-weight: 600; }
+    @media print { .view-navbar { display: none; } .view-container { margin: 0; padding: 0; } }
   </style>
 </head>
 <body>
 
   <nav class="view-navbar">
-    <a href="index.html" class="view-brand">TR Resume Builder</a>
+    <a href="index.html" class="view-brand"><span class="view-brand-logo">TR</span> Resume Builder</a>
     <div class="view-actions">
+      <button type="button" class="theme-toggle theme-toggle-on-dark" onclick="toggleTheme()" aria-label="Switch to dark mode" title="Switch to dark mode"><i class="fas fa-moon"></i></button>
       <button class="view-btn view-btn-outline" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
       <button class="view-btn view-btn-outline" onclick="exportPDF()" id="downloadPdfBtn"><i class="fas fa-file-pdf"></i> Download PDF</button>
       <a href="resume.html" class="view-btn view-btn-primary"><i class="fas fa-edit"></i> Build Yours</a>

@@ -1,0 +1,197 @@
+/* =====================================================
+   EU Royal theme: every site color lives here.
+   Navy and gold come from the EU flag, matching the
+   Europass format the templates follow.
+
+   Three states:
+   - data-theme="light" / "dark" on <html>: the user's choice (theme.js)
+   - no data-theme: follow the operating system (prefers-color-scheme)
+   The resume "paper" (.resume-preview) is pinned to light colors in
+   main.css so the document and its PDF always print on white.
+   ===================================================== */
+
+:root {
+  /* Brand */
+  --navy: #0b1f4d;
+  --eu-blue: #003399;
+  --gold: #f5b700;
+  --gold-hover: #ffc72c;
+  --on-gold: #0b1f4d;
+
+  /* Interactive (links, focus, icons) and filled buttons */
+  --primary: #003399;
+  --primary-fill: #003399;
+  --primary-fill-hover: #00287a;
+  --on-primary: #ffffff;
+  --primary-soft: #e9eefa;
+  --primary-soft-hover: #dbe4f7;
+  --primary-soft-border: #c3d0ee;
+  --focus-ring: #c7d4f2;
+  --accent: #f5b700;
+
+  /* Surfaces and text */
+  --bg: #f4f6fb;
+  --surface: #ffffff;
+  --surface-2: #f8f9fc;
+  --border: #dfe4ef;
+  --text: #14213d;
+  --text-muted: #5b6478;
+
+  /* Dark chrome (sidebar, hero, footer) */
+  --chrome-bg: #0b1f4d;
+  --chrome-bg-2: #102a63;
+  --chrome-text: #ffffff;
+  --chrome-text-muted: #aab4cf;
+  --chrome-border: rgba(255, 255, 255, 0.12);
+
+  /* Logo */
+  --logo-bg: #0b1f4d;
+  --logo-fg: #f5b700;
+
+  /* Status colors */
+  --success: #15803d;
+  --success-soft: #eaf7ef;
+  --success-border: #a7e3bd;
+  --warning: #b45309;
+  --warning-soft: #fff8e6;
+  --warning-border: #f6dc8a;
+  --warning-ink: #8a5a00;
+  --danger: #c62828;
+  --danger-soft: #fdecec;
+  --danger-soft-hover: #fbd5d5;
+  --danger-border: #f5b5b5;
+  --danger-ink: #8b1c1c;
+
+  /* Misc */
+  --preview-bg: #e6eaf3;
+  --overlay: rgba(11, 31, 77, 0.55);
+  --toast-bg: #0b1f4d;
+  --toast-info-bg: #003399;
+  --shadow: 0 2px 12px rgba(11, 31, 77, 0.08);
+  --shadow-lg: 0 20px 60px rgba(11, 31, 77, 0.25);
+
+  color-scheme: light;
+}
+
+/* Dark values. Same block twice: once for "follow the system",
+   once for an explicit dark choice, so the toggle wins both ways. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --primary: #9db8ff;
+    --primary-fill: #3b66f5;
+    --primary-fill-hover: #5579ff;
+    --on-primary: #ffffff;
+    --primary-soft: rgba(157, 184, 255, 0.12);
+    --primary-soft-hover: rgba(157, 184, 255, 0.2);
+    --primary-soft-border: rgba(157, 184, 255, 0.3);
+    --focus-ring: rgba(157, 184, 255, 0.35);
+
+    --bg: #08122b;
+    --surface: #0f1b3a;
+    --surface-2: #142249;
+    --border: #23335c;
+    --text: #e6ebf7;
+    --text-muted: #9aa6c4;
+
+    --chrome-bg: #050d22;
+    --chrome-bg-2: #0b1a40;
+    --chrome-border: rgba(255, 255, 255, 0.08);
+
+    --logo-bg: #f5b700;
+    --logo-fg: #0b1f4d;
+
+    --success: #4ade80;
+    --success-soft: rgba(74, 222, 128, 0.12);
+    --success-border: rgba(74, 222, 128, 0.35);
+    --warning: #fbbf24;
+    --warning-soft: rgba(251, 191, 36, 0.12);
+    --warning-border: rgba(251, 191, 36, 0.35);
+    --warning-ink: #fcd34d;
+    --danger: #f87171;
+    --danger-soft: rgba(248, 113, 113, 0.12);
+    --danger-soft-hover: rgba(248, 113, 113, 0.2);
+    --danger-border: rgba(248, 113, 113, 0.35);
+    --danger-ink: #fca5a5;
+
+    --preview-bg: #0a1533;
+    --overlay: rgba(0, 0, 0, 0.6);
+    --toast-bg: #1f3266;
+    --toast-info-bg: #3b66f5;
+    --shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.5);
+
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --primary: #9db8ff;
+  --primary-fill: #3b66f5;
+  --primary-fill-hover: #5579ff;
+  --on-primary: #ffffff;
+  --primary-soft: rgba(157, 184, 255, 0.12);
+  --primary-soft-hover: rgba(157, 184, 255, 0.2);
+  --primary-soft-border: rgba(157, 184, 255, 0.3);
+  --focus-ring: rgba(157, 184, 255, 0.35);
+
+  --bg: #08122b;
+  --surface: #0f1b3a;
+  --surface-2: #142249;
+  --border: #23335c;
+  --text: #e6ebf7;
+  --text-muted: #9aa6c4;
+
+  --chrome-bg: #050d22;
+  --chrome-bg-2: #0b1a40;
+  --chrome-border: rgba(255, 255, 255, 0.08);
+
+  --logo-bg: #f5b700;
+  --logo-fg: #0b1f4d;
+
+  --success: #4ade80;
+  --success-soft: rgba(74, 222, 128, 0.12);
+  --success-border: rgba(74, 222, 128, 0.35);
+  --warning: #fbbf24;
+  --warning-soft: rgba(251, 191, 36, 0.12);
+  --warning-border: rgba(251, 191, 36, 0.35);
+  --warning-ink: #fcd34d;
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.12);
+  --danger-soft-hover: rgba(248, 113, 113, 0.2);
+  --danger-border: rgba(248, 113, 113, 0.35);
+  --danger-ink: #fca5a5;
+
+  --preview-bg: #0a1533;
+  --overlay: rgba(0, 0, 0, 0.6);
+  --toast-bg: #1f3266;
+  --toast-info-bg: #3b66f5;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.5);
+
+  color-scheme: dark;
+}
+
+/* ── Theme toggle button (shared by all pages) ───────── */
+.theme-toggle {
+  width: 38px; height: 38px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 9px; border: 1.5px solid var(--border);
+  background: var(--surface); color: var(--text);
+  font-size: 15px; cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, transform 0.15s;
+}
+.theme-toggle:hover { border-color: var(--primary); color: var(--primary); }
+.theme-toggle:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
+.theme-toggle-on-dark {
+  border-color: rgba(255, 255, 255, 0.3); background: transparent; color: #ffffff;
+}
+.theme-toggle-on-dark:hover { border-color: var(--gold); color: var(--gold); }
+
+/* Smooth color change when switching, but not on first paint */
+.theme-anim, .theme-anim * {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-anim, .theme-anim * { transition: none !important; }
+}

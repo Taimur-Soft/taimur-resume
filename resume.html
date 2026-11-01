@@ -4,8 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Taimur Rahman — Resume Builder</title>
+  <script src="assets/js/theme.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;600;700&family=Poppins:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Lora:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="assets/css/theme.css">
   <link rel="stylesheet" href="assets/css/main.css">
 </head>
 <body>
@@ -53,6 +55,7 @@
       <button onclick="printCV()" class="btn-icon" title="Print">
         <i class="fas fa-print"></i> Print
       </button>
+      <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Switch to dark mode" title="Switch to dark mode"><i class="fas fa-moon"></i></button>
       <button onclick="exportPDF()" id="downloadPdfBtn" class="btn-primary" title="Download as PDF">
         <i class="fas fa-file-pdf"></i> Download PDF
       </button>
@@ -105,7 +108,7 @@
         </div>
       </div>
       <div class="sidebar-footer">
-        <div style="font-size:11px;color:#475569;text-align:center;margin-bottom:6px">Completion</div>
+        <div style="font-size:11px;color:var(--sidebar-text);text-align:center;margin-bottom:6px">Completion</div>
         <div class="sidebar-progress" id="sidebarProgress">0%</div>
       </div>
     </aside>
@@ -351,7 +354,7 @@
 
         <!-- ATS Score -->
         <div class="ai-tool-card">
-          <h4><i class="fas fa-chart-bar" style="color:#2563eb"></i> ATS Match Checker</h4>
+          <h4><i class="fas fa-chart-bar" style="color:var(--primary)"></i> ATS Match Checker</h4>
           <p class="hint-text">Paste a job description. <strong>Keyword Score</strong> is instant and runs in your browser. <strong>AI Match</strong> uses Gemini to compare meaning, find missing skills, and rewrite weak bullet points (needs the free Gemini key below).</p>
           <textarea id="jobDescription" class="form-input" rows="5"
             placeholder="Paste the full job description here...&#10;&#10;e.g. We are looking for a Software Engineer with experience in React, Node.js, and REST APIs..."></textarea>
@@ -369,7 +372,7 @@
 
         <!-- Grammar & Tone -->
         <div class="ai-tool-card">
-          <h4><i class="fas fa-magic" style="color:#7c3aed"></i> Grammar & Tone Checker</h4>
+          <h4><i class="fas fa-magic" style="color:var(--warning)"></i> Grammar & Tone Checker</h4>
           <p class="hint-text">Grammar via LanguageTool (free, no key needed) + Tone via Google Gemini (free API key required).</p>
           <div class="ai-key-row">
             <input type="password" id="geminiApiKey" class="form-input"
@@ -407,7 +410,7 @@
         <div class="share-modal-content">
           <button onclick="closeShareModal()" class="btn-close">×</button>
           <h4><i class="fas fa-share-alt"></i> Share Your Resume</h4>
-          <p style="font-size:13px;color:#64748b;margin-bottom:16px">Anyone with this link can view your resume</p>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Anyone with this link can view your resume</p>
           <div class="share-url-row">
             <input type="text" id="shareUrl" readonly class="form-input" placeholder="Generating link...">
             <button onclick="copyShareUrl()" class="btn-icon" title="Copy link">
@@ -415,7 +418,7 @@
             </button>
           </div>
           <div id="qrContainer" style="margin:16px 0;display:flex;justify-content:center"></div>
-          <p style="font-size:11px;color:#94a3b8;text-align:center">Scan QR code to open on mobile</p>
+          <p style="font-size:11px;color:var(--text-muted);text-align:center">Scan QR code to open on mobile</p>
         </div>
       </div>
 
