@@ -89,9 +89,12 @@ function updateAuthUI() {
     let savedId = null;
     try { savedId = localStorage.getItem(ACTIVE_CLOUD_ID_KEY); } catch (e) {}
     currentCloudResumeId = savedId || null;
-    setCloudSyncStatus(currentCloudResumeId ? 'synced' : 'idle');
+    const willLoad = currentCloudResumeId && !initialCloudLoadDone;
+    // This also runs on every token refresh, so only set a starting status
+    // once; after that the real save/load results own the badge.
+    if (!syncState) setCloudSyncStatus(willLoad ? 'loading' : (currentCloudResumeId ? 'synced' : 'idle'));
 
-    if (currentCloudResumeId && !initialCloudLoadDone) {
+    if (willLoad) {
       // A page load (or refresh) while already signed in — pull the
       // account's own saved resume back into the form. Local-storage
       // persistence was removed on purpose (it used to leak whatever was
@@ -118,22 +121,68 @@ function updateAuthUI() {
 // re-render (see generateCV() -> renderCV()), so any edit that redraws the
 // preview also pushes to the cloud when signed in.
 let autoSyncTimer = null;
+let syncState = null;        // what the navbar badge currently says
+let lastSyncedJSON = null;   // the form exactly as last saved to / loaded from the cloud
+let lastSyncedAt = null;     // when that happened (for the badge tooltip)
+let syncRetryTimer = null;
+let syncRetryCount = 0;
+const SYNC_RETRY_DELAYS_MS = [5000, 15000, 30000, 60000];
+
+function formSnapshot() {
+  try { return JSON.stringify(collectFormData()); } catch (e) { return null; }
+}
+
 function autoSyncToCloud() {
   if (!currentUser) return;
+  // The saved copy of this resume never loaded, so the form on screen is
+  // not that resume: saving it would overwrite the real one.
+  if (syncState === 'loadfail') return;
   clearTimeout(autoSyncTimer);
+  autoSyncTimer = null;
+  // Nothing actually changed since the last save/load (e.g. the re-render
+  // right after loading a resume, or undo back to the saved state).
+  const snap = formSnapshot();
+  if (snap && snap === lastSyncedJSON) {
+    if (syncState === 'pending') setCloudSyncStatus('synced');
+    return;
+  }
+  setCloudSyncStatus(navigator.onLine === false ? 'offline' : 'pending');
   autoSyncTimer = setTimeout(silentSaveToCloud, 1200);
 }
 
-async function silentSaveToCloud() {
+function scheduleSyncRetry() {
+  clearTimeout(syncRetryTimer);
+  // Offline: the 'online' listener below retries as soon as we're back.
+  if (navigator.onLine === false) return;
+  const delay = SYNC_RETRY_DELAYS_MS[Math.min(syncRetryCount, SYNC_RETRY_DELAYS_MS.length - 1)];
+  syncRetryCount++;
+  syncRetryTimer = setTimeout(silentSaveToCloud, delay);
+}
+
+function retrySyncNow() {
   if (!currentUser) return;
+  clearTimeout(syncRetryTimer);
+  clearTimeout(autoSyncTimer);
+  autoSyncTimer = null;
+  silentSaveToCloud();
+}
+
+async function silentSaveToCloud() {
+  autoSyncTimer = null;
+  clearTimeout(syncRetryTimer);
+  if (!currentUser || syncState === 'loadfail') return;
 
   // Lock in which resume this save is FOR, before anything async happens.
   const myVersion = resumeContextVersion;
   const startId = currentCloudResumeId;
 
   const data = collectFormData();
+  const snap = formSnapshot();
   const hasData = data.personal.firstname || data.personal.lastname || data.personal.designation;
-  if (!hasData) return; // nothing worth syncing yet
+  if (!hasData) { // nothing worth syncing yet
+    if (syncState === 'pending' || syncState === 'offline') setCloudSyncStatus(startId ? 'synced' : 'idle');
+    return;
+  }
 
   setCloudSyncStatus('syncing');
 
@@ -166,33 +215,113 @@ async function silentSaveToCloud() {
       }
     }
     if (myVersion !== resumeContextVersion) return;
-    setCloudSyncStatus('synced');
+    markSynced(snap);
   } catch (err) {
-    setCloudSyncStatus('error', err.message);
+    if (myVersion !== resumeContextVersion) return;
+    setCloudSyncStatus(navigator.onLine === false ? 'offline' : 'error', err.message);
+    scheduleSyncRetry();
   }
 }
+
+// Called after a successful save or load. If the user kept typing while
+// the request was in flight, a newer save is already queued, so the badge
+// stays on "Unsaved changes" instead of claiming everything is synced.
+function markSynced(snap) {
+  lastSyncedJSON = snap;
+  lastSyncedAt = Date.now();
+  syncRetryCount = 0;
+  if (autoSyncTimer) setCloudSyncStatus('pending');
+  else if (snap && formSnapshot() !== snap) autoSyncToCloud();
+  else setCloudSyncStatus('synced');
+}
+
+function timeAgo(ts) {
+  const s = Math.round((Date.now() - ts) / 1000);
+  if (s < 10) return 'just now';
+  if (s < 60) return s + ' sec ago';
+  const m = Math.round(s / 60);
+  if (m < 60) return m + ' min ago';
+  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function hasUnsyncedChanges() {
+  return !!currentUser && (!!autoSyncTimer || ['pending', 'syncing', 'error', 'offline'].includes(syncState));
+}
+
+// Back online: push whatever is waiting right away.
+window.addEventListener('online', () => {
+  if (currentUser && ['pending', 'error', 'offline'].includes(syncState)) retrySyncNow();
+});
+window.addEventListener('offline', () => {
+  if (['pending', 'syncing', 'error'].includes(syncState)) setCloudSyncStatus('offline');
+});
+// Switching tabs or minimising: don't wait out the debounce, save now.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && autoSyncTimer) retrySyncNow();
+});
+// Closing or reloading with edits not yet in the cloud: start the save and
+// let the browser ask "Leave site?" so the request has time to finish.
+window.addEventListener('beforeunload', (e) => {
+  if (!hasUnsyncedChanges()) return;
+  if (autoSyncTimer) retrySyncNow();
+  e.preventDefault();
+  e.returnValue = '';
+});
 
 function setCloudSyncStatus(state, errorMessage) {
   const el = document.getElementById('cloudSyncStatus');
+  syncState = state || null;
   if (!el) return;
 
-  if (state === 'syncing') {
-    el.innerHTML = '<i class="fas fa-cloud-upload-alt fa-spin"></i> Syncing...';
-    el.className = 'cloud-sync-status';
-  } else if (state === 'synced') {
-    el.innerHTML = '<i class="fas fa-check-circle"></i> Synced';
-    el.className = 'cloud-sync-status';
-  } else if (state === 'error') {
-    el.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Sync failed';
-    el.className = 'cloud-sync-status cloud-sync-status-error';
-    el.title = errorMessage || '';
-  } else if (state === 'idle') {
-    el.innerHTML = '<i class="fas fa-cloud"></i> Not synced yet';
-    el.className = 'cloud-sync-status';
-  } else {
-    el.textContent = '';
+  const views = {
+    loading: ['fas fa-spinner fa-spin', 'Loading...', '', 'Loading your resume from the cloud'],
+    pending: ['fas fa-pen', 'Unsaved changes', 'pending', 'Your latest edits will be saved in a moment'],
+    syncing: ['fas fa-cloud-upload-alt fa-spin', 'Syncing...', '', 'Saving to the cloud'],
+    synced: ['fas fa-check-circle', 'Synced', '', ''],
+    offline: ['fas fa-wifi', 'Offline', 'pending', 'You are offline. Your edits will sync as soon as the connection is back.'],
+    error: ['fas fa-exclamation-triangle', 'Sync failed · Retry', 'error', ''],
+    loadfail: ['fas fa-exclamation-triangle', 'Load failed · Retry', 'error', ''],
+    idle: ['fas fa-cloud', 'Not synced yet', 'idle', 'Start typing and your resume will be saved to your account']
+  };
+  const v = views[state];
+  el.onclick = null;
+  el.removeAttribute('role');
+  el.removeAttribute('tabindex');
+  if (!v) { el.textContent = ''; el.title = ''; el.className = 'cloud-sync-status'; return; }
+
+  el.innerHTML = `<i class="${v[0]}"></i> <span>${v[1]}</span>`;
+  el.className = 'cloud-sync-status' + (v[2] ? ' cloud-sync-status-' + v[2] : '');
+  el.title = v[3];
+  if (state === 'error') {
+    el.title = 'Could not save' + (errorMessage ? ': ' + errorMessage : '') + '. Retrying automatically. Click to retry now.';
+    el.onclick = retrySyncNow;
+  } else if (state === 'loadfail') {
+    el.title = 'Could not load your resume' + (errorMessage ? ': ' + errorMessage : '') + '. Click to try again.';
+    el.onclick = retryLoadNow;
+  }
+  if (el.onclick) {
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '0');
   }
 }
+
+let loadFailedId = null;
+function retryLoadNow() {
+  if (currentUser && loadFailedId) loadCloudResume(loadFailedId, { silent: true });
+}
+
+// The "Synced" tooltip says how long ago, worked out when it's hovered so
+// it never goes stale.
+document.addEventListener('mouseover', (e) => {
+  const el = e.target.closest && e.target.closest('#cloudSyncStatus');
+  if (el && syncState === 'synced' && lastSyncedAt) el.title = 'All changes saved · last synced ' + timeAgo(lastSyncedAt);
+});
+document.addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.id === 'cloudSyncStatus' && e.target.onclick) {
+    e.preventDefault();
+    e.target.onclick();
+  }
+});
 
 // ── SIGN UP / SIGN IN / SIGN OUT ───────────────────────
 // New sign-up flow: email → 6-digit code (OTP) → set password → forced
@@ -585,13 +714,24 @@ async function handleSignupPasswordSubmit(event) {
 // ── CLOUD SAVE / LOAD / DELETE ─────────────────────────
 async function saveToCloud() {
   if (!currentUser) { openAuthModal('signin'); return; }
+  if (syncState === 'loadfail') {
+    showToast('⚠️ Your saved resume did not load yet. Click "Load failed · Retry" first so it is not overwritten.', 'error');
+    return;
+  }
 
   // Lock in which resume this save is FOR, before anything async happens —
   // see the comment on resumeContextVersion above.
   const myVersion = resumeContextVersion;
   const startId = currentCloudResumeId;
 
+  // A manual save replaces any autosave still waiting, so the two can't
+  // both create a new row for the same resume.
+  clearTimeout(autoSyncTimer);
+  autoSyncTimer = null;
+  clearTimeout(syncRetryTimer);
+
   const data = collectFormData();
+  const snap = formSnapshot();
 
   setCloudSyncStatus('syncing');
   try {
@@ -620,9 +760,10 @@ async function saveToCloud() {
       }
       showToast('✅ Resume saved to cloud!', 'success');
     }
-    if (myVersion === resumeContextVersion) setCloudSyncStatus('synced');
+    if (myVersion === resumeContextVersion) markSynced(snap);
   } catch (err) {
-    setCloudSyncStatus('error', err.message);
+    setCloudSyncStatus(navigator.onLine === false ? 'offline' : 'error', err.message);
+    scheduleSyncRetry();
     showToast('❌ Could not save: ' + err.message, 'error');
   }
 }
@@ -742,7 +883,10 @@ async function loadCloudResume(id, { silent = false } = {}) {
   // resolve later and either yank the app back onto the old resume or
   // write its data into this one. See resumeContextVersion above.
   clearTimeout(autoSyncTimer);
+  autoSyncTimer = null;
+  clearTimeout(syncRetryTimer);
   const myVersion = ++resumeContextVersion;
+  setCloudSyncStatus('loading');
 
   try {
     const { data: row, error } = await supabaseClient
@@ -761,15 +905,27 @@ async function loadCloudResume(id, { silent = false } = {}) {
     setActiveCloudResumeName(row.name || 'Untitled Resume');
     restoreFromData(row.data);
     // A template picked on the homepage gallery wins over the saved one.
+    // Remember what was loaded, so the re-render this triggers isn't
+    // mistaken for an edit. A template picked on the homepage gallery is a
+    // real change from the saved one, so that is applied afterwards and
+    // gets saved as usual.
+    clearTimeout(autoSyncTimer);
+    autoSyncTimer = null;
+    loadFailedId = null;
+    markSynced(formSnapshot());
     if (silent && typeof reapplyRequestedTemplate === 'function') reapplyRequestedTemplate();
-    setCloudSyncStatus('synced');
     if (!silent) {
       closeMyResumesModal();
       showToast('✅ Resume loaded!', 'success');
     }
   } catch (err) {
+    if (myVersion !== resumeContextVersion) return;
+    // Its own state (not 'error'): retrying must re-load, never save the
+    // form that's on screen over the saved resume.
+    loadFailedId = id;
+    setCloudSyncStatus('loadfail', err.message);
     // Silent (auto) load failing just leaves a blank form — no need to
-    // alarm the user over something they didn't explicitly trigger.
+    // alarm the user with a toast over something they didn't trigger.
     if (!silent) showToast('❌ Could not load: ' + err.message, 'error');
   }
 }
