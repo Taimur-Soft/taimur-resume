@@ -757,6 +757,8 @@ async function loadCloudResume(id, { silent = false } = {}) {
     setActiveCloudResumeId(row.id);
     setActiveCloudResumeName(row.name || 'Untitled Resume');
     restoreFromData(row.data);
+    // A template picked on the homepage gallery wins over the saved one.
+    if (silent && typeof reapplyRequestedTemplate === 'function') reapplyRequestedTemplate();
     setCloudSyncStatus('synced');
     if (!silent) {
       closeMyResumesModal();

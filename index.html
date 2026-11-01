@@ -114,30 +114,57 @@
 
     /* Templates Preview */
     .templates-section { background: var(--surface); padding: 72px 20px; border-top: 1px solid var(--border); }
-    .templates-row { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; max-width: 900px; margin: 0 auto; }
+    .template-groups { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px; }
+    .template-group-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .template-group-head h3 { font-size: 15px; font-weight: 700; }
+    .template-group-head span { font-size: 13px; color: var(--text-muted); }
+    .templates-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
     .template-preview {
-      width: 140px; text-align: center; background: var(--surface);
+      display: block; text-align: center; background: var(--surface); color: var(--text); text-decoration: none;
       border: 2px solid var(--border); border-radius: 12px; overflow: hidden;
-      transition: border-color 0.15s; cursor: pointer;
+      transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
     }
-    .template-preview:hover { border-color: var(--gold); }
-    .tp-thumb { height: 100px; }
-    .tp-thumb-aurora { background: linear-gradient(to right, #0f172a 38%, #f5f5f5 38%); }
-    .tp-thumb-emerald { background: linear-gradient(to right, #064e3b 38%, #f5f5f5 38%); }
-    .tp-thumb-slate { background: linear-gradient(to right, #334155 38%, #f8fafc 38%); }
-    .tp-thumb-coral { background: linear-gradient(to right, #c2410c 38%, #fff7ed 38%); }
-    .tp-thumb-ivory { background: linear-gradient(to right, #f5f1e6 38%, #ffffff 38%); }
-    .tp-thumb-sunrise { background: linear-gradient(to bottom, #f59e0b 32%, #fffbeb 32%); }
-    .tp-thumb-horizon { background: linear-gradient(to bottom, #1d4ed8 32%, #eff6ff 32%); }
-    .tp-thumb-blossom { background: linear-gradient(to bottom, #db2777 32%, #fdf2f8 32%); }
-    .tp-thumb-nordic { background: linear-gradient(to bottom, #475569 32%, #f8fafc 32%); }
-    .tp-thumb-velvet { background: linear-gradient(to bottom, #581c47 32%, #fdf4ff 32%); }
-    .tp-thumb-pulse { background: #ffffff; border-left: 5px solid #16a34a; }
-    .tp-thumb-meridian { background: #ffffff; border-left: 5px solid #2563eb; }
-    .tp-thumb-zenith { background: #ffffff; border-left: 5px solid #ea580c; }
-    .tp-thumb-canvas { background: #fffdf7; border-left: 5px solid #92400e; }
-    .tp-thumb-quartz { background: #ffffff; border-left: 5px solid #64748b; }
-    .tp-name { padding: 10px; font-size: 13px; font-weight: 600; }
+    .template-preview:hover, .template-preview:focus-visible {
+      border-color: var(--gold); transform: translateY(-3px); box-shadow: var(--shadow); outline: none;
+    }
+    .tp-name { padding: 10px; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .tp-name i { font-size: 11px; opacity: 0; transform: translateX(-4px); transition: opacity 0.15s, transform 0.15s; color: var(--primary); }
+    .template-preview:hover .tp-name i, .template-preview:focus-visible .tp-name i { opacity: 1; transform: none; }
+
+    /* Mini resume sketch. Colors come from inline --side / --band / --accent / --paper. */
+    .tp-thumb { position: relative; height: 128px; background: var(--paper, #ffffff); overflow: hidden; border-bottom: 1px solid var(--border); }
+    .tp-thumb > span { position: absolute; display: block; }
+    .tp-avatar { width: 18px; height: 18px; border-radius: 50%; background: var(--avatar, rgba(255,255,255,0.6)); }
+    .tp-head { height: 4px; border-radius: 2px; background: var(--accent); }
+    .tp-lines { background: repeating-linear-gradient(to bottom, rgba(51,65,85,0.22) 0 3px, transparent 3px 8px); }
+    .tp-side-lines { background: repeating-linear-gradient(to bottom, var(--side-ink, rgba(255,255,255,0.45)) 0 2px, transparent 2px 7px); }
+    /* Sidebar layout */
+    .tp-sidebar::before { content: ''; position: absolute; inset: 0 62% 0 0; background: var(--side); }
+    .tp-sidebar .tp-avatar { top: 14px; left: calc(19% - 9px); }
+    .tp-sidebar .tp-side-lines { top: 42px; left: 8%; width: 22%; bottom: 40px; }
+    .tp-sidebar .tp-head { top: 14px; left: 45%; width: 30%; }
+    .tp-sidebar .tp-lines { top: 26px; left: 45%; right: 9%; bottom: 14px; }
+    /* Banner layout */
+    .tp-banner::before { content: ''; position: absolute; inset: 0 0 68% 0; background: var(--band); }
+    .tp-banner .tp-avatar { top: 11px; left: 12px; }
+    .tp-banner .tp-side-lines { top: 15px; left: 38px; width: 42%; height: 11px; }
+    .tp-banner .tp-head { top: 50px; left: 12px; width: 34%; }
+    .tp-banner .tp-lines { top: 62px; left: 12px; right: 40%; bottom: 12px; }
+    .tp-banner .tp-col { top: 50px; right: 10px; width: 28%; bottom: 12px; background: repeating-linear-gradient(to bottom, rgba(51,65,85,0.14) 0 3px, transparent 3px 8px); }
+    /* Timeline layout */
+    .tp-timeline .tp-avatar { top: 12px; left: 12px; background: transparent; border: 2px solid var(--accent); }
+    .tp-timeline .tp-side-lines { top: 15px; left: 38px; width: 45%; height: 11px; --side-ink: rgba(51,65,85,0.35); }
+    .tp-timeline .tp-head { top: 38px; left: 12px; right: 12px; height: 2px; }
+    .tp-timeline .tp-rail { top: 50px; left: 16px; width: 2px; bottom: 12px; background: var(--accent); }
+    .tp-timeline .tp-rail::before, .tp-timeline .tp-rail::after { content: ''; position: absolute; left: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+    .tp-timeline .tp-rail::before { top: 4px; }
+    .tp-timeline .tp-rail::after { top: 38px; }
+    .tp-timeline .tp-lines { top: 52px; left: 28px; right: 12px; bottom: 12px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .template-preview, .tp-name i { transition: none; }
+      .template-preview:hover { transform: none; }
+    }
 
     /* CTA Section */
     .cta-section {
@@ -261,24 +288,39 @@
   <section class="templates-section">
     <div class="section-title">
       <h2>Choose Your Style</h2>
-      <p>15 Europass templates for every industry</p>
+      <p>15 Europass templates in three layouts. Pick one to start building with it.</p>
     </div>
-    <div class="templates-row">
-      <div class="template-preview"><div class="tp-thumb tp-thumb-aurora"></div><div class="tp-name">Aurora</div></div>
-      <div class="template-preview"><div class="tp-thumb tp-thumb-emerald"></div><div class="tp-name">Emerald</div></div>
-      <div class="template-preview"><div class="tp-thumb tp-thumb-slate"></div><div class="tp-name">Slate</div></div>
-      <div class="template-preview"><div class="tp-thumb tp-thumb-coral"></div><div class="tp-name">Coral</div></div>
-      <div class="template-preview"><div class="tp-thumb tp-thumb-ivory"></div><div class="tp-name">Ivory</div></div>
-      <div class="template-preview"><div class="tp-thumb tp-thumb-sunrise"></div><div class="tp-name">Sunrise</div></div>
-      <div class="template-preview"><div class="tp-thumb tp-thumb-horizon"></div><div class="tp-name">Horizon</div></div>
-      <div class="template-preview"><div class="tp-thumb tp-thumb-blossom"></div><div class="tp-name">Blossom</div></div>
-      <div class="template-preview"><div class="tp-thumb tp-thumb-nordic"></div><div class="tp-name">Nordic</div></div>
-      <div class="template-preview"><div class="tp-thumb tp-thumb-velvet"></div><div class="tp-name">Velvet</div></div>
-      <div class="template-preview"><div class="tp-thumb tp-thumb-pulse"></div><div class="tp-name">Pulse</div></div>
-      <div class="template-preview"><div class="tp-thumb tp-thumb-meridian"></div><div class="tp-name">Meridian</div></div>
-      <div class="template-preview"><div class="tp-thumb tp-thumb-zenith"></div><div class="tp-name">Zenith</div></div>
-      <div class="template-preview"><div class="tp-thumb tp-thumb-canvas"></div><div class="tp-name">Canvas</div></div>
-      <div class="template-preview"><div class="tp-thumb tp-thumb-quartz"></div><div class="tp-name">Quartz</div></div>
+    <div class="template-groups">
+      <div>
+        <div class="template-group-head"><h3>Sidebar layout</h3><span>Contact and skills in a coloured column</span></div>
+        <div class="templates-row">
+          <a class="template-preview" href="resume.html?template=aurora"><div class="tp-thumb tp-sidebar" style="--side:#0f172a;--accent:#0f172a;--paper:#f5f5f5"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-lines"></span></div><div class="tp-name">Aurora <i class="fas fa-arrow-right" aria-hidden="true"></i></div></a>
+          <a class="template-preview" href="resume.html?template=emerald"><div class="tp-thumb tp-sidebar" style="--side:#064e3b;--accent:#064e3b;--paper:#f5f5f5"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-lines"></span></div><div class="tp-name">Emerald <i class="fas fa-arrow-right" aria-hidden="true"></i></div></a>
+          <a class="template-preview" href="resume.html?template=slate"><div class="tp-thumb tp-sidebar" style="--side:#334155;--accent:#334155;--paper:#f8fafc"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-lines"></span></div><div class="tp-name">Slate <i class="fas fa-arrow-right" aria-hidden="true"></i></div></a>
+          <a class="template-preview" href="resume.html?template=coral"><div class="tp-thumb tp-sidebar" style="--side:#c2410c;--accent:#c2410c;--paper:#fff7ed"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-lines"></span></div><div class="tp-name">Coral <i class="fas fa-arrow-right" aria-hidden="true"></i></div></a>
+          <a class="template-preview" href="resume.html?template=ivory"><div class="tp-thumb tp-sidebar" style="--side:#efe8d6;--accent:#8a7a55;--paper:#ffffff;--avatar:rgba(63,58,46,0.25);--side-ink:rgba(63,58,46,0.3)"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-lines"></span></div><div class="tp-name">Ivory <i class="fas fa-arrow-right" aria-hidden="true"></i></div></a>
+        </div>
+      </div>
+      <div>
+        <div class="template-group-head"><h3>Banner layout</h3><span>Name and photo in a bold header band</span></div>
+        <div class="templates-row">
+          <a class="template-preview" href="resume.html?template=sunrise"><div class="tp-thumb tp-banner" style="--band:linear-gradient(120deg,#f59e0b,#ea580c);--accent:#ea580c;--paper:#fffbeb"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-lines"></span><span class="tp-col"></span></div><div class="tp-name">Sunrise <i class="fas fa-arrow-right" aria-hidden="true"></i></div></a>
+          <a class="template-preview" href="resume.html?template=horizon"><div class="tp-thumb tp-banner" style="--band:linear-gradient(120deg,#1e3a8a,#1d4ed8);--accent:#1d4ed8;--paper:#eff6ff"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-lines"></span><span class="tp-col"></span></div><div class="tp-name">Horizon <i class="fas fa-arrow-right" aria-hidden="true"></i></div></a>
+          <a class="template-preview" href="resume.html?template=blossom"><div class="tp-thumb tp-banner" style="--band:linear-gradient(120deg,#be185d,#9333ea);--accent:#be185d;--paper:#fdf2f8"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-lines"></span><span class="tp-col"></span></div><div class="tp-name">Blossom <i class="fas fa-arrow-right" aria-hidden="true"></i></div></a>
+          <a class="template-preview" href="resume.html?template=nordic"><div class="tp-thumb tp-banner" style="--band:linear-gradient(120deg,#334155,#0f172a);--accent:#475569;--paper:#f8fafc"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-lines"></span><span class="tp-col"></span></div><div class="tp-name">Nordic <i class="fas fa-arrow-right" aria-hidden="true"></i></div></a>
+          <a class="template-preview" href="resume.html?template=velvet"><div class="tp-thumb tp-banner" style="--band:linear-gradient(120deg,#581c47,#3b0764);--accent:#581c47;--paper:#fdf4ff"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-lines"></span><span class="tp-col"></span></div><div class="tp-name">Velvet <i class="fas fa-arrow-right" aria-hidden="true"></i></div></a>
+        </div>
+      </div>
+      <div>
+        <div class="template-group-head"><h3>Timeline layout</h3><span>Experience on a single clean timeline</span></div>
+        <div class="templates-row">
+          <a class="template-preview" href="resume.html?template=pulse"><div class="tp-thumb tp-timeline" style="--accent:#16a34a;--paper:#ffffff"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-rail"></span><span class="tp-lines"></span></div><div class="tp-name">Pulse <i class="fas fa-arrow-right" aria-hidden="true"></i></div></a>
+          <a class="template-preview" href="resume.html?template=meridian"><div class="tp-thumb tp-timeline" style="--accent:#2563eb;--paper:#ffffff"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-rail"></span><span class="tp-lines"></span></div><div class="tp-name">Meridian <i class="fas fa-arrow-right" aria-hidden="true"></i></div></a>
+          <a class="template-preview" href="resume.html?template=zenith"><div class="tp-thumb tp-timeline" style="--accent:#ea580c;--paper:#ffffff"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-rail"></span><span class="tp-lines"></span></div><div class="tp-name">Zenith <i class="fas fa-arrow-right" aria-hidden="true"></i></div></a>
+          <a class="template-preview" href="resume.html?template=canvas"><div class="tp-thumb tp-timeline" style="--accent:#92400e;--paper:#fffdf7"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-rail"></span><span class="tp-lines"></span></div><div class="tp-name">Canvas <i class="fas fa-arrow-right" aria-hidden="true"></i></div></a>
+          <a class="template-preview" href="resume.html?template=quartz"><div class="tp-thumb tp-timeline" style="--accent:#64748b;--paper:#ffffff"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-rail"></span><span class="tp-lines"></span></div><div class="tp-name">Quartz <i class="fas fa-arrow-right" aria-hidden="true"></i></div></a>
+        </div>
+      </div>
     </div>
   </section>
 

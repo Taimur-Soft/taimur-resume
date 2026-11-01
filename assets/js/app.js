@@ -25,9 +25,42 @@ document.addEventListener('DOMContentLoaded', () => {
   try { localStorage.removeItem('tr_resume_data'); } catch (e) {}
   initSortableSections();
   addInitialItems();
+  applyRequestedTemplate();
   renderCV(); // instant first paint — bypass the debounce used for typing
   calculateProgress();
 });
+
+// ── TEMPLATE FROM LINK ─────────────────────────────────
+// The homepage template gallery links to resume.html?template=<name>.
+// Apply it on load, and remember it so a signed-in user's cloud resume
+// (loaded a moment later by auth.js) doesn't override that explicit choice.
+let requestedTemplate = null;
+
+function applyRequestedTemplate() {
+  let name = null;
+  try { name = new URLSearchParams(window.location.search).get('template'); } catch (e) {}
+  if (!name || !document.querySelector(`.template-card[data-template="${CSS.escape(name)}"]`)) return;
+
+  requestedTemplate = name;
+  switchTemplate(name);
+
+  // Drop the parameter so a refresh doesn't keep forcing the template.
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('template');
+    history.replaceState(null, '', url.pathname + url.search + url.hash);
+  } catch (e) {}
+
+  const label = name.charAt(0).toUpperCase() + name.slice(1);
+  setTimeout(() => showToast(`✅ ${label} template selected`, 'success'), 300);
+}
+
+// Called by auth.js after it restores a saved resume.
+function reapplyRequestedTemplate() {
+  if (!requestedTemplate) return;
+  switchTemplate(requestedTemplate);
+  requestedTemplate = null;
+}
 
 function addInitialItems() {
   const experienceContainer = document.getElementById('experience-container');
