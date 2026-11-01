@@ -917,13 +917,25 @@ function updateStepChecks() {
 }
 
 // ── WIZARD NAVIGATION ──────────────────────────────────
-function scrollToSection(sectionId) {
+// Highlights one sidebar step as the current one ("Now").
+function setActiveStep(sectionId) {
   activeStep = sectionId;
+  document.querySelectorAll('.step-item').forEach(s => {
+    const on = s.dataset.step === sectionId;
+    s.classList.toggle('active', on);
+    if (on) s.setAttribute('aria-current', 'step');
+    else s.removeAttribute('aria-current');
+  });
+}
 
-  // Update active step in sidebar
-  document.querySelectorAll('.step-item').forEach(s => s.classList.remove('active'));
-  const activeEl = document.querySelector(`[data-step="${sectionId}"]`);
-  if (activeEl) activeEl.classList.add('active');
+// Set when a step is clicked, so the scroll-spy doesn't overrule the click
+// while the smooth scroll is still moving (or when a short last section
+// can't scroll all the way to the top).
+let stepClickLockUntil = 0;
+
+function scrollToSection(sectionId) {
+  setActiveStep(sectionId);
+  stepClickLockUntil = Date.now() + 900;
 
   // Scroll the form panel element to the target section
   const target = document.getElementById(`section-${sectionId}`);
@@ -934,6 +946,42 @@ function scrollToSection(sectionId) {
     formPanel.scrollTo({ top: scrollTop, behavior: 'smooth' });
   }
 }
+
+// ── SCROLL-SPY ─────────────────────────────────────────
+// As the user scrolls the form, highlight the step for the section
+// that is currently at the top of the panel.
+function initStepScrollSpy() {
+  const panel = document.getElementById('formPanel');
+  const steps = [...document.querySelectorAll('.step-item[data-step]')];
+  if (!panel || !steps.length) return;
+
+  const sections = steps
+    .map(s => ({ id: s.dataset.step, el: document.getElementById(`section-${s.dataset.step}`) }))
+    .filter(s => s.el);
+
+  let ticking = false;
+  const update = () => {
+    ticking = false;
+    if (Date.now() < stepClickLockUntil) return;
+    const panelTop = panel.getBoundingClientRect().top;
+    let current = sections[0].id;
+    for (const s of sections) {
+      if (s.el.getBoundingClientRect().top - panelTop <= 120) current = s.id;
+    }
+    // At the very bottom, the last section may never reach the top line.
+    if (panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 4) current = sections[sections.length - 1].id;
+    if (current !== activeStep) setActiveStep(current);
+  };
+
+  // Throttle with a short timer (not requestAnimationFrame, which browsers
+  // pause in background or hidden windows).
+  panel.addEventListener('scroll', () => {
+    if (!ticking) { ticking = true; setTimeout(update, 60); }
+  }, { passive: true });
+  update();
+}
+
+document.addEventListener('DOMContentLoaded', initStepScrollSpy);
 
 // ── IMAGE PREVIEW ──────────────────────────────────────
 function previewImage() {
