@@ -20,28 +20,23 @@ function checkATS() {
     return;
   }
 
-  // Extract keywords from job description
-  const stopWords = new Set([
-    'a','an','the','and','or','but','in','on','at','to','for','of','with',
-    'as','by','is','are','was','were','be','been','have','has','had','do',
-    'does','did','will','would','could','should','may','might','shall','can',
-    'not','we','you','they','he','she','it','this','that','these','those',
-    'our','your','their','its','my','your','his','her','their'
-  ]);
+  // Job keywords (normalised) → how often each appears and how it was written.
+  const jobCounts = new Map();
+  const jobDisplay = new Map();
+  extractATSKeywords(jobDesc).forEach(({ key, word }) => {
+    jobCounts.set(key, (jobCounts.get(key) || 0) + 1);
+    if (!jobDisplay.has(key)) jobDisplay.set(key, word);
+  });
+  const resumeWordSet = new Set(extractATSKeywords(resumeText).map(k => k.key));
 
-  const extractKeywords = (text) => {
-    return text.toLowerCase()
-      .replace(/[^a-z0-9\s\+\#]/g, ' ')
-      .split(/\s+/)
-      .filter(w => w.length > 2 && !stopWords.has(w));
-  };
-
-  const jobKeywords = [...new Set(extractKeywords(jobDesc))];
-  const resumeWords = extractKeywords(resumeText);
-  const resumeWordSet = new Set(resumeWords);
-
+  const jobKeywords = [...jobCounts.keys()];
   const matched = jobKeywords.filter(kw => resumeWordSet.has(kw));
-  const missing = jobKeywords.filter(kw => !resumeWordSet.has(kw)).slice(0, 15);
+  // Most-mentioned missing terms first: those matter most to this job.
+  const missing = jobKeywords
+    .filter(kw => !resumeWordSet.has(kw))
+    .sort((a, b) => jobCounts.get(b) - jobCounts.get(a))
+    .slice(0, 15)
+    .map(kw => jobDisplay.get(kw));
 
   const score = jobKeywords.length > 0
     ? Math.round((matched.length / jobKeywords.length) * 100)
@@ -65,12 +60,58 @@ function checkATS() {
         <div class="ats-missing">
           <strong>⚡ Consider adding:</strong>
           <div class="missing-tags">
-            ${missing.map(w => `<span class="missing-tag">${w}</span>`).join('')}
+            ${missing.map(w => `<span class="missing-tag">${escapeHTML(w)}</span>`).join('')}
           </div>
         </div>` : '<div class="ats-stat">🎉 All key terms matched!</div>'}
       </div>
     </div>
   `;
+}
+
+// Words that appear in almost every job ad but say nothing about the skills
+// wanted. Counting them made the score low and the "Consider adding" list
+// useless ("looking", "years", "closely"...).
+const ATS_STOP_WORDS = new Set(`
+a about above across after again all also am an and any are as at be been being both but by can could did do does
+doing during each etc every few for from further had has have having he her here hers him his how i if in into is it
+its just like may me might more most must my no nor not now of off on once only or other our ours out over own per
+same shall she should so some such than that the their them then there these they this those through to too under
+until up upon very via was we well were what when where which while who whom why will with within without would yes
+you your yours
+ability able abilities additional apply applicant applicants apply candidate candidates closely company day days
+desired duties ensure environment equal excellent exciting experience experienced experiences familiar familiarity
+following full good great help highly ideal ideally including job join key knowledge least level looking make minimum
+months new nice offer offers opportunity opportunities plus position preferred proven related required requirement
+requirements responsibilities responsibility responsible role salary similar strong successful team teams time understanding using
+want way week weeks work working works year years skill skilled solid hands modern field member based duty seeking
+fast-paced paced dynamic passionate motivated plus etc`.split(/\s+/).filter(Boolean));
+
+// Short tokens that are real skills, not noise.
+const ATS_SHORT_TERMS = new Set(['ai', 'ml', 'ui', 'ux', 'qa', 'go', 'bi', 'ci', 'cd', 'c', 'r', '3d', 'ar', 'vr', 'ios', 'aws', 'gcp', 'sql', 'css', 'php', 'api', 'seo', 'git']);
+
+// Different spellings of the same thing count as one keyword.
+const ATS_ALIASES = {
+  js: 'javascript', ts: 'typescript', reactjs: 'react', 'react.js': 'react', nodejs: 'node', 'node.js': 'node',
+  'vue.js': 'vue', vuejs: 'vue', 'next.js': 'nextjs', 'nest.js': 'nestjs', postgres: 'postgresql', k8s: 'kubernetes',
+  'c#': 'csharp', golang: 'go', apis: 'api', restful: 'rest', html5: 'html', css3: 'css', 'es6+': 'es6', ml: 'machine-learning'
+};
+
+// Returns [{key, word}]: key is used for matching (lower case, alias and
+// plural folded), word is how it was written, for display.
+function extractATSKeywords(text) {
+  return text
+    .replace(/[^A-Za-z0-9+#.\s-]/g, ' ')
+    .split(/\s+/)
+    .map(w => w.replace(/^[.\-]+|[.\-]+$/g, ''))
+    .filter(Boolean)
+    .map(word => {
+      let key = word.toLowerCase();
+      if (ATS_ALIASES[key]) return { key: ATS_ALIASES[key], word };
+      if (key.length > 4 && key.endsWith('ies')) key = key.slice(0, -3) + 'y';
+      else if (key.length > 3 && key.endsWith('s') && !/(ss|us|is|js)$/.test(key)) key = key.slice(0, -1);
+      return { key: ATS_ALIASES[key] || key, word };
+    })
+    .filter(({ key }) => (key.length > 2 || ATS_SHORT_TERMS.has(key)) && !ATS_STOP_WORDS.has(key) && !/^\d+$/.test(key));
 }
 
 // Helper: get the resume's own text as a single string.
@@ -80,7 +121,9 @@ function checkATS() {
 // or account fields, and send them to LanguageTool and Gemini.
 function getResumeText() {
   const data = collectFormData();
-  const skipKeys = new Set(['image', 'level', 'link', 'current']);
+  // Contact details (email, phone) aren't needed by any check, so they are
+  // never sent to LanguageTool or Gemini.
+  const skipKeys = new Set(['image', 'level', 'link', 'current', 'email', 'phoneno']);
   const parts = [];
   const walk = (value) => {
     if (typeof value === 'string') { if (value.trim()) parts.push(value.trim()); }
@@ -90,26 +133,79 @@ function getResumeText() {
     }
   };
   walk([data.personal, data.experiences, data.educations, data.skills,
-        data.projects, data.achievements, data.customSections]);
+        data.projects, data.achievements, (data.languages || []).map(l => l.language),
+        data.customSections]);
   return parts.join('\n');
+}
+
+// Only the sentences people write (summary and descriptions), one paragraph
+// each, for the grammar check. Names, titles and companies are left out:
+// LanguageTool flagged them as spelling mistakes, and gluing separate
+// fields together produced fake "repeated word" errors.
+function getResumeProse() {
+  const d = collectFormData();
+  const texts = [
+    d.personal.summary,
+    ...d.experiences.map(e => e.description),
+    ...d.educations.map(e => e.description),
+    ...d.projects.map(p => p.description),
+    ...d.achievements.map(a => a.description),
+    ...d.customSections.flatMap(s => s.items.map(i => i.description))
+  ];
+  return texts
+    .map(t => (t || '').replace(/^[\s•\-*]+/gm, '').trim())
+    .filter(Boolean)
+    .map(t => /[.!?]$/.test(t) ? t : t + '.')
+    .join('\n\n');
+}
+
+// Names, companies, schools, skills and titles from the resume, so a
+// "possible spelling mistake" on one of them can be ignored.
+function getResumeProperTerms() {
+  const d = collectFormData();
+  const words = [
+    d.personal.firstname, d.personal.middlename, d.personal.lastname, d.personal.designation, d.personal.address,
+    ...d.experiences.flatMap(e => [e.title, e.organization, e.location]),
+    ...d.educations.flatMap(e => [e.school, e.degree, e.city]),
+    ...d.skills.map(s => s.skill),
+    ...d.projects.map(p => p.title),
+    ...d.achievements.map(a => a.title)
+  ].join(' ').toLowerCase().split(/[^a-z0-9+#.]+/);
+  return new Set(words.filter(Boolean));
 }
 
 
 // ── 2. GRAMMAR CHECKER (LanguageTool) ─────────────────
+// Returns { issues, error }. A failed request is reported as an error
+// instead of silently showing "no grammar issues".
 async function checkGrammar(text) {
-  if (!text || text.length < 10) return [];
+  if (!text || text.length < 10) return { issues: [], error: null };
 
   try {
     const response = await fetch('https://api.languagetool.org/v2/check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `text=${encodeURIComponent(text)}&language=en-US&enabledOnly=false`
+      // The free API accepts up to 20 KB per request.
+      body: `text=${encodeURIComponent(text.slice(0, 15000))}&language=en-US`
     });
+    if (!response.ok) {
+      return { issues: [], error: response.status === 429
+        ? 'LanguageTool is busy (too many checks this minute). Try again shortly.'
+        : `LanguageTool returned an error (${response.status}).` };
+    }
     const data = await response.json();
-    return data.matches || [];
+    const known = getResumeProperTerms();
+    const issues = (data.matches || []).filter(m => {
+      if (m.rule?.issueType !== 'misspelling') return true;
+      const word = (m.context?.text || '').slice(m.context.offset, m.context.offset + m.context.length);
+      // Skip names, companies and tech terms the user wrote elsewhere, and
+      // capitalised words in general (most are proper nouns or products).
+      return !known.has(word.toLowerCase()) && !/^[A-Z]/.test(word);
+    });
+    return { issues, error: null };
   } catch (err) {
     console.warn('LanguageTool error:', err);
-    return [];
+    return { issues: [], error: 'Could not reach LanguageTool. Check your internet connection.' };
   }
 }
 
@@ -218,6 +314,7 @@ async function checkToneWithGemini(text, apiKey, onStatus) {
 2. Top 3 specific improvements for tone and impact
 3. Flag any passive voice sentences
 4. Suggest 2-3 power verbs to replace weak words
+5. Find up to 5 grammar mistakes (e.g. subject-verb agreement, wrong tense, missing articles). Ignore names, company names, technical terms and resume-style fragments without a subject, which are normal on a resume.
 
 Resume text:
 """
@@ -231,6 +328,7 @@ Respond in this exact JSON format:
   "improvements": ["improvement 1", "improvement 2", "improvement 3"],
   "passiveVoice": ["example passive sentence if any"],
   "powerVerbs": ["verb1", "verb2", "verb3"],
+  "grammarFixes": [{"original": "exact phrase from the resume", "corrected": "corrected phrase"}],
   "summary": "One sentence overall assessment"
 }`;
 
@@ -523,8 +621,9 @@ async function checkGrammarAndTone() {
     </div>`;
 
   try {
-    // Step 1: Grammar check (LanguageTool - free, no key)
-    const grammarIssues = await checkGrammar(resumeText);
+    // Step 1: Grammar check (LanguageTool - free, no key), on the written
+    // sentences only.
+    const { issues: grammarIssues, error: grammarError } = await checkGrammar(getResumeProse());
 
     const showLoading = (message) => {
       resultDiv.innerHTML = `
@@ -564,7 +663,23 @@ async function checkGrammarAndTone() {
                 : ''}
             </div>`).join('')}
         </div>`
-      : `<div class="grammar-ok">✅ No major grammar issues found!</div>`;
+      : grammarError
+        ? `<div class="tone-error">⚠️ Grammar check: ${escapeHTML(grammarError)}</div>`
+        : `<div class="grammar-ok">✅ LanguageTool found no grammar or spelling issues.</div>`;
+
+    // Gemini catches mistakes LanguageTool misses (e.g. "who have built").
+    const fixes = (Array.isArray(toneData?.grammarFixes) ? toneData.grammarFixes : [])
+      .filter(f => f && f.original && f.corrected && f.original.trim() !== f.corrected.trim())
+      .slice(0, 5);
+    const fixesHtml = fixes.length ? `
+      <div class="grammar-issues">
+        <h5>✏️ More grammar fixes (Gemini)</h5>
+        ${fixes.map(f => `
+          <div class="grammar-issue">
+            <span class="issue-text">"${escapeHTML(f.original)}"</span>
+            <span class="issue-fix">Suggestion: <strong>${escapeHTML(f.corrected)}</strong></span>
+          </div>`).join('')}
+      </div>` : '';
 
     const toneHtml = toneData
       ? `<div class="tone-results">
@@ -589,7 +704,7 @@ async function checkGrammarAndTone() {
         ? `<div class="tone-error">⚠️ Gemini: ${escapeHTML(toneError)}<br><small>${escapeHTML(toneErrorHint)}</small></div>`
         : `<div class="tone-error">ℹ️ Enter your Gemini API key above to enable tone analysis</div>`;
 
-    resultDiv.innerHTML = grammarHtml + toneHtml;
+    resultDiv.innerHTML = grammarHtml + fixesHtml + toneHtml;
 
   } catch (err) {
     resultDiv.innerHTML = `<div class="ai-error">❌ Error: ${escapeHTML(err.message)}</div>`;
