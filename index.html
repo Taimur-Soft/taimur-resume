@@ -146,16 +146,48 @@
       background: linear-gradient(135deg, var(--chrome-bg) 0%, var(--chrome-bg-2) 100%);
       color: var(--chrome-text);
     }
-    .cta-section h2 { font-size: 32px; font-weight: 800; margin-bottom: 16px; }
-    .cta-section p { font-size: 16px; color: var(--chrome-text-muted); margin-bottom: 32px; }
+    .cta-section h2 { font-size: clamp(26px, 4vw, 34px); font-weight: 800; margin: 0 auto 14px; max-width: 640px; text-wrap: balance; }
+    .cta-section p { font-size: 17px; color: var(--chrome-text-muted); margin: 0 auto 32px; max-width: 560px; line-height: 1.6; }
+    .cta-buttons { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .cta-trust {
+      list-style: none; display: flex; gap: 10px 24px; justify-content: center; flex-wrap: wrap;
+      margin-top: 28px; font-size: 14px; color: var(--chrome-text-muted);
+    }
+    .cta-trust li { display: inline-flex; align-items: center; gap: 7px; }
+    .cta-trust i { color: var(--gold); font-size: 13px; }
 
     /* Footer */
     footer {
       background: var(--chrome-bg); color: var(--chrome-text-muted);
-      text-align: center; padding: 24px; font-size: 13px;
-      border-top: 1px solid var(--chrome-border);
+      font-size: 14px; border-top: 1px solid var(--chrome-border);
+      padding: 48px 20px 0;
     }
-    footer a { color: var(--gold); text-decoration: none; }
+    .footer-grid {
+      max-width: 1100px; margin: 0 auto;
+      display: grid; grid-template-columns: 1.4fr 1fr 1.2fr; gap: 32px;
+    }
+    .footer-brand { display: flex; flex-direction: column; gap: 12px; }
+    .footer-logo { display: flex; align-items: center; gap: 10px; color: var(--chrome-text); font-weight: 700; font-size: 17px; text-decoration: none; }
+    .footer-logo .logo-icon { width: 34px; height: 34px; font-size: 13px; background: var(--gold); color: var(--on-gold); }
+    .footer-logo em { color: var(--gold); font-style: normal; }
+    .footer-brand p { max-width: 280px; line-height: 1.6; }
+    .footer-col h4 { color: var(--chrome-text); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 14px; }
+    .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .footer-col a { color: var(--chrome-text-muted); text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: color 0.15s; }
+    .footer-col a:hover, .footer-col a:focus-visible { color: var(--gold); outline: none; }
+    .footer-stack { line-height: 1.6; }
+    .footer-bottom {
+      max-width: 1100px; margin: 40px auto 0; padding: 20px 0 24px;
+      border-top: 1px solid var(--chrome-border);
+      display: flex; gap: 8px 24px; justify-content: space-between; flex-wrap: wrap; font-size: 13px;
+    }
+    @media (max-width: 760px) {
+      .footer-grid { grid-template-columns: 1fr 1fr; }
+      .footer-brand { grid-column: 1 / -1; }
+    }
+    @media (max-width: 420px) {
+      .footer-grid { grid-template-columns: 1fr; }
+    }
 
     /* Small screens: keep the nav on one line */
     @media (max-width: 640px) {
@@ -259,7 +291,7 @@
   </section>
 
   <!-- Templates Preview -->
-  <section class="templates-section">
+  <section class="templates-section" id="templates">
     <div class="section-title">
       <h2>Choose Your Style</h2>
       <p>15 Europass templates in three layouts. Pick one to start building with it.</p>
@@ -300,15 +332,45 @@
 
   <!-- CTA -->
   <section class="cta-section">
-    <h2>Ready to Build Your Resume?</h2>
-    <p>Free, fast, and easy to use. Start in seconds.</p>
-    <a href="resume.html" class="btn-hero btn-hero-primary" style="display:inline-flex;margin:0 auto">
-      <i class="fas fa-rocket"></i> Build My Resume, Free
-    </a>
+    <h2>Make Your Next Application Your Best One</h2>
+    <p>Pick a Europass template, check it against the job with AI, and download a polished PDF in minutes.</p>
+    <div class="cta-buttons">
+      <a href="resume.html" class="btn-hero btn-hero-primary"><i class="fas fa-rocket"></i> Build My Resume, Free</a>
+      <a href="#templates" class="btn-hero btn-hero-outline"><i class="fas fa-table-cells-large"></i> Browse Templates</a>
+    </div>
+    <ul class="cta-trust">
+      <li><i class="fas fa-check" aria-hidden="true"></i> No account needed to try</li>
+      <li><i class="fas fa-check" aria-hidden="true"></i> One-click PDF</li>
+      <li><i class="fas fa-check" aria-hidden="true"></i> Light &amp; dark mode</li>
+    </ul>
   </section>
 
   <footer>
-    <p>&copy; <span id="footerYear">2026</span> Taimur Rahman Org. All Rights Reserved.</p>
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="index.html" class="footer-logo"><span class="logo-icon">TR</span> Taimur <em>Resume</em></a>
+        <p>Europass-format resumes with AI job matching.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <ul>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#templates">Templates</a></li>
+          <li><a href="resume.html">Build a resume</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/Taimur-Soft/taimur-resume" target="_blank" rel="noopener"><i class="fab fa-github" aria-hidden="true"></i> Source code on GitHub</a></li>
+          <li class="footer-stack">Built with Supabase, Vercel and Gemini</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; <span id="footerYear">2026</span> Taimur Rahman Org. All rights reserved.</span>
+      <span>Europass-format templates. Not affiliated with the European Commission.</span>
+    </div>
   </footer>
 
   <script>
