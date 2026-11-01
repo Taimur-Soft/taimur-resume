@@ -786,23 +786,31 @@ async function openMyResumes() {
     if (error) throw error;
 
     if (!resumes.length) {
-      listEl.innerHTML = '<div class="empty-state"><i class="fas fa-cloud"></i><p>No saved resumes yet. Click "Save to Cloud" to save your current resume.</p></div>';
+      listEl.innerHTML = '<div class="empty-state"><i class="fas fa-cloud"></i><p>No saved resumes yet. Start typing your name in Personal Information and your resume will be saved here automatically.</p></div>';
       return;
     }
 
-    listEl.innerHTML = resumes.map(r => `
-      <div class="my-resume-item" data-id="${r.id}">
+    // The resume that's open right now goes first, marked "Open now".
+    resumes.sort((a, b) => (b.id === currentCloudResumeId) - (a.id === currentCloudResumeId));
+
+    listEl.innerHTML = resumes.map(r => {
+      const isCurrent = r.id === currentCloudResumeId;
+      return `
+      <div class="my-resume-item${isCurrent ? ' is-current' : ''}" data-id="${r.id}">
         <div class="my-resume-info">
-          <strong>${escapeHTML(r.name || 'Untitled Resume')}</strong>
-          <span>${new Date(r.updated_at).toLocaleString()}</span>
+          <strong><span class="my-resume-name">${escapeHTML(r.name || 'Untitled Resume')}</span>${isCurrent ? ' <em class="my-resume-current">Open now</em>' : ''}</strong>
+          <span>Last saved ${new Date(r.updated_at).toLocaleString()}</span>
         </div>
         <div class="my-resume-actions">
-          <button onclick="loadCloudResume('${r.id}')" class="btn-icon" title="Load"><i class="fas fa-folder-open"></i></button>
+          ${isCurrent
+            ? `<button class="btn-icon" title="This resume is already open" disabled><i class="fas fa-folder-open"></i></button>`
+            : `<button onclick="loadCloudResume('${r.id}')" class="btn-icon" title="Open this resume"><i class="fas fa-folder-open"></i></button>`}
           <button onclick="startRenameResume(this)" class="btn-icon" title="Rename"><i class="fas fa-pen"></i></button>
           <button onclick="duplicateCloudResume('${r.id}')" class="btn-icon" title="Duplicate"><i class="fas fa-clone"></i></button>
           <button onclick="deleteCloudResume('${r.id}')" class="remove-btn" title="Delete"><i class="fas fa-trash-alt"></i></button>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   } catch (err) {
     listEl.innerHTML = `<div class="ai-error">❌ ${err.message}</div>`;
   }
@@ -816,7 +824,7 @@ async function openMyResumes() {
 function startRenameResume(btn) {
   const item = btn.closest('.my-resume-item');
   if (!item) return;
-  const nameEl = item.querySelector('.my-resume-info strong');
+  const nameEl = item.querySelector('.my-resume-name') || item.querySelector('.my-resume-info strong');
   const currentName = nameEl.textContent;
 
   const infoEl = item.querySelector('.my-resume-info');

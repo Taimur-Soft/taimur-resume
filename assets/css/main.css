@@ -713,6 +713,15 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 }
 .my-resumes-modal-header h4 { margin-bottom: 0; white-space: nowrap; }
 .my-resumes-new-btn { padding: 7px 14px; font-size: 12.5px; white-space: nowrap; flex-shrink: 0; }
+.my-resumes-hint { margin: -4px 0 12px; }
+.my-resume-item.is-current { border-color: var(--primary); background: var(--primary-soft, var(--bg)); }
+.my-resume-current {
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 99px;
+  font-style: normal; font-size: 10.5px; font-weight: 600; vertical-align: 1px;
+  color: var(--primary); border: 1px solid var(--primary);
+}
+.my-resume-actions .btn-icon:disabled { opacity: 0.4; cursor: default; }
+.btn-icon-only { padding-left: 10px; padding-right: 10px; }
 
 .auth-account-btn {
   display: flex; align-items: center; gap: 7px; background: none; border: none;

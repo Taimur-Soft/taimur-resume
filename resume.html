@@ -33,8 +33,8 @@
       </div>
       <div id="authSignedIn" class="auth-nav-group" style="display:none">
         <span id="cloudSyncStatus" class="cloud-sync-status"></span>
-        <button onclick="saveToCloud()" class="btn-icon" title="Save to Cloud"><i class="fas fa-cloud-upload-alt"></i> Save to Cloud</button>
-        <button onclick="openMyResumes()" class="btn-icon" title="My Resumes"><i class="fas fa-folder"></i> My Resumes</button>
+        <button onclick="saveToCloud()" class="btn-icon btn-icon-only" title="Save now (your resume also saves automatically as you type)" aria-label="Save now"><i class="fas fa-cloud-upload-alt"></i></button>
+        <button onclick="openMyResumes()" class="btn-icon" title="All your saved resumes: open, rename, copy, delete or start a new one"><i class="fas fa-folder"></i> My Resumes</button>
         <button onclick="openAccountModal()" class="auth-account-btn" title="Account Settings">
           <span id="authUserAvatar" class="auth-user-avatar"><i class="fas fa-user"></i></span>
           <span id="authUserEmail" class="auth-user-email"></span>
@@ -550,6 +550,7 @@
         <h4><i class="fas fa-cloud"></i> My Saved Resumes</h4>
         <button onclick="startNewResume()" class="btn-secondary my-resumes-new-btn" title="Start a new, separate resume"><i class="fas fa-plus"></i> New Resume</button>
       </div>
+      <p class="hint-text my-resumes-hint">Changes save automatically. Keep a separate resume for each kind of job: use <strong>New Resume</strong>, or <strong>Duplicate</strong> one and adjust it.</p>
       <div id="myResumesList" style="max-height:400px;overflow-y:auto"></div>
     </div>
   </div>
