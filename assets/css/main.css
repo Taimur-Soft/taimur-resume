@@ -202,6 +202,11 @@ ol.step-list::before {
 
 /* ── TEMPLATE GRID ───────────────────────────────────── */
 .template-grid { display: flex; gap: 12px; flex-wrap: wrap; }
+.tpl-group-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-muted); margin: 0 0 8px;
+}
+.template-grid + .tpl-group-label { margin-top: 16px; }
 .template-card {
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   cursor: pointer; border: 2px solid var(--border); border-radius: 10px;
@@ -226,8 +231,50 @@ ol.step-list::before {
 
 /* ── FORM ELEMENTS ───────────────────────────────────── */
 .form-row { display: flex; gap: 16px; margin-bottom: 12px; }
+.form-row > .form-elem { flex: 1; min-width: 0; }
 .form-row.cols-3 > * { flex: 1; min-width: 0; }
 .form-row.cols-2 > * { flex: 1; min-width: 0; }
+
+/* Character counter + tip under longer text fields */
+.field-meta { display: flex; justify-content: space-between; gap: 12px; font-size: 11.5px; color: var(--text-muted); }
+.char-count { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.char-count.over { color: var(--warning); font-weight: 600; }
+
+/* Profile photo uploader */
+.photo-upload {
+  position: relative;
+  display: flex; align-items: center; gap: 12px; padding: 6px 10px 6px 6px;
+  border: 1.5px dashed var(--border); border-radius: 10px; background: var(--surface);
+  transition: border-color 0.15s, background 0.15s;
+}
+.photo-upload.dragover { border-color: var(--primary); background: var(--primary-soft); }
+.photo-upload input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.photo-preview {
+  width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+  background: var(--primary-soft); color: var(--primary); font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+}
+.photo-preview img { width: 100%; height: 100%; object-fit: cover; display: none; }
+.photo-upload.has-photo .photo-preview img { display: block; }
+.photo-upload.has-photo .photo-preview i { display: none; }
+.photo-actions { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.photo-buttons { display: flex; gap: 6px; align-items: center; }
+/* .photo-upload prefix beats the generic ".form-elem label" style */
+.photo-upload .photo-pick {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 5px 12px; border-radius: 99px; font-size: 12.5px; font-weight: 600;
+  color: var(--primary); border: 1.5px solid var(--primary);
+  text-transform: none; letter-spacing: 0;
+}
+.photo-upload .photo-pick:hover { background: var(--primary-soft); }
+.photo-upload:focus-within .photo-pick { box-shadow: 0 0 0 3px var(--focus-ring); }
+.photo-remove {
+  display: none; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--danger-soft); color: var(--danger); font-size: 11px;
+  align-items: center; justify-content: center;
+}
+.photo-upload.has-photo .photo-remove { display: inline-flex; }
+.photo-hint { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .form-elem { display: flex; flex-direction: column; gap: 5px; }
 .form-elem label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .required { color: var(--danger); }
@@ -263,7 +310,38 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
   padding: 2px; border-radius: 4px;
 }
 .drag-handle:active { cursor: grabbing; }
-.item-label { font-size: 13px; font-weight: 600; color: var(--text); }
+.item-label {
+  font-size: 13px; font-weight: 600; color: var(--text);
+  flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.item-label.is-fallback { color: var(--text-muted); font-weight: 500; font-style: italic; }
+.item-toggle {
+  width: 24px; height: 24px; border-radius: 6px; background: none; color: var(--text-muted);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0;
+}
+.item-toggle:hover { background: var(--primary-soft); color: var(--primary); }
+.item-toggle i { transition: transform 0.2s; }
+.repeater-item.collapsed .item-toggle i { transform: rotate(-90deg); }
+.repeater-item.collapsed > :not(.repeater-item-header) { display: none; }
+.repeater-item.collapsed .repeater-item-header { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+.repeater-item.collapsed { padding-block: 10px; }
+.remove-btn { flex-shrink: 0; }
+
+/* Compact skill rows: handle · name · level buttons · delete */
+.repeater-item.skill-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px; margin-bottom: 8px;
+}
+.skill-item .form-input.skill { flex: 1; min-width: 120px; }
+.skill-levels { display: flex; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+.skill-levels button {
+  padding: 6px 10px; font-size: 11.5px; font-weight: 600; background: var(--surface); color: var(--text-muted);
+  border-left: 1px solid var(--border); transition: background 0.15s, color 0.15s;
+}
+.skill-levels button:first-child { border-left: none; }
+.skill-levels button:hover { background: var(--primary-soft); color: var(--primary); }
+.skill-levels button.active { background: var(--primary-fill); color: var(--on-primary); }
+.skill-levels button:focus-visible, .item-toggle:focus-visible, .remove-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
+.skill-item .remove-btn { margin-left: 0; }
 .remove-btn {
   margin-left: auto; padding: 5px 10px; border-radius: 6px;
   background: var(--danger-soft); color: var(--danger); font-size: 12px;
@@ -278,6 +356,18 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 }
 .ai-tool-card h4 { font-size: 14px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .ai-key-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.ai-key-card {
+  padding: 16px 20px 6px; margin-bottom: 16px; border-radius: 10px;
+  border: 1px solid var(--primary-soft-border); background: var(--primary-soft);
+}
+.ai-key-card .hint-text { margin: 4px 0 12px; }
+.ai-key-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ai-key-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.ai-key-title i { color: var(--warning); }
+.ai-key-status { font-size: 11.5px; font-weight: 700; padding: 3px 10px; border-radius: 99px; white-space: nowrap; }
+.ai-key-status[data-state="saved"] { background: var(--success-soft); color: var(--success); }
+.ai-key-status[data-state="unsaved"] { background: var(--warning-soft); color: var(--warning-ink); }
+.ai-key-status[data-state="none"] { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
 .ai-key-row .form-input { flex: 1; font-size: 12px; }
 .ai-result { margin-top: 16px; border-radius: 8px; overflow: hidden; }
 .ai-loading { display: flex; align-items: center; gap: 10px; padding: 16px; color: var(--text-muted); font-size: 13px; }
@@ -727,6 +817,9 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 
   /* Repeater item: tighter */
   .repeater-item { padding: 12px; }
+  .repeater-item.skill-item { flex-wrap: wrap; }
+  .skill-levels { order: 3; width: 100%; }
+  .skill-levels button { flex: 1; padding: 6px 4px; }
   .repeater-item-header { margin-bottom: 10px; padding-bottom: 8px; }
 
   /* Preview panel: below form on mobile */

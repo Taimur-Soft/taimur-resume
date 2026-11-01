@@ -305,7 +305,7 @@ function collectFormData() {
 
   // Image
   const imageEl = document.getElementById('image_dsp');
-  const imageSrc = imageEl?.src && imageEl.src !== window.location.href ? imageEl.src : '';
+  const imageSrc = hasPhoto() ? imageEl.src : '';
 
   return {
     template: currentTemplate,
@@ -617,14 +617,28 @@ function buildResumeHTML(rawData) {
 }
 
 // ── REPEATER ITEMS ─────────────────────────────────────
+// Card header shared by experience / education / projects / achievements:
+// drag handle, collapse toggle, a title that fills in from the fields
+// (see updateItemLabel), and delete.
+const repeaterHeader = (fallback) => `
+      <div class="repeater-item-header">
+        <span class="drag-handle" title="Drag to reorder"><i class="fas fa-grip-vertical"></i></span>
+        <button type="button" class="item-toggle" onclick="toggleRepeaterItem(this)" aria-expanded="true" aria-label="Collapse"><i class="fas fa-chevron-down"></i></button>
+        <span class="item-label" data-fallback="${fallback}">${fallback}</span>
+        <button type="button" onclick="removeRepeaterItem(this)" class="remove-btn" aria-label="Delete"><i class="fas fa-trash-alt"></i></button>
+      </div>`;
+
+const SKILL_LEVELS = [
+  { value: 25, label: 'Beginner' },
+  { value: 50, label: 'Intermediate' },
+  { value: 75, label: 'Advanced' },
+  { value: 100, label: 'Expert' }
+];
+
 const repeaterTemplates = {
   experience: (id) => `
-    <div class="repeater-item" data-id="${id}">
-      <div class="repeater-item-header">
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-        <span class="item-label">Experience</span>
-        <button onclick="removeRepeaterItem(this)" class="remove-btn"><i class="fas fa-trash-alt"></i></button>
-      </div>
+    <div class="repeater-item" data-id="${id}" data-section="experience">
+      ${repeaterHeader('New experience')}
       <div class="form-row cols-3">
         <div class="form-elem"><label>Job Title</label>
           <input type="text" class="form-input exp_title" onkeyup="generateCV()" placeholder="e.g. Software Engineer"></div>
@@ -633,24 +647,23 @@ const repeaterTemplates = {
         <div class="form-elem"><label>Location</label>
           <input type="text" class="form-input exp_location" onkeyup="generateCV()" placeholder="e.g. Remote"></div>
       </div>
-      <div class="form-row cols-3">
+      <div class="form-row cols-2">
         <div class="form-elem"><label>Start Date</label>
           <input type="month" class="form-input exp_start_date" onchange="generateCV()"></div>
         <div class="form-elem"><label>End Date</label>
           <input type="month" class="form-input exp_end_date" onchange="generateCV()">
           <label class="current-label"><input type="checkbox" class="exp_current" onchange="toggleCurrent(this)"> Currently working here</label></div>
+      </div>
+      <div class="form-row">
         <div class="form-elem"><label>Description</label>
-          <textarea class="form-input exp_description" rows="2" onkeyup="generateCV()" placeholder="Key responsibilities and achievements..."></textarea></div>
+          <textarea class="form-input exp_description" rows="3" data-count="500" onkeyup="generateCV()" placeholder="What you did and what changed because of it, e.g. Built a dashboard that cut report time by 40%"></textarea>
+          <div class="field-meta"><span>Tip: start with an action verb and show a result.</span><span class="char-count"></span></div></div>
       </div>
     </div>`,
 
   education: (id) => `
-    <div class="repeater-item" data-id="${id}">
-      <div class="repeater-item-header">
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-        <span class="item-label">Education</span>
-        <button onclick="removeRepeaterItem(this)" class="remove-btn"><i class="fas fa-trash-alt"></i></button>
-      </div>
+    <div class="repeater-item" data-id="${id}" data-section="education">
+      ${repeaterHeader('New education')}
       <div class="form-row cols-3">
         <div class="form-elem"><label>School / University</label>
           <input type="text" class="form-input edu_school" onkeyup="generateCV()" placeholder="e.g. BUET"></div>
@@ -669,46 +682,39 @@ const repeaterTemplates = {
       </div>
     </div>`,
 
+  // One compact row per skill: name + level buttons. The level is stored as
+  // a number (25/50/75/100) in a hidden input, which the templates use as
+  // the skill-bar width.
   skills: (id) => `
-    <div class="repeater-item" data-id="${id}">
-      <div class="repeater-item-header">
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-        <span class="item-label">Skill</span>
-        <button onclick="removeRepeaterItem(this)" class="remove-btn"><i class="fas fa-trash-alt"></i></button>
+    <div class="repeater-item skill-item" data-id="${id}" data-section="skills">
+      <span class="drag-handle" title="Drag to reorder"><i class="fas fa-grip-vertical"></i></span>
+      <input type="text" class="form-input skill" onkeyup="generateCV()" placeholder="Skill, e.g. React.js" aria-label="Skill name">
+      <input type="hidden" class="skill_level" value="75">
+      <div class="skill-levels" role="group" aria-label="Skill level">
+        ${SKILL_LEVELS.map(l => `<button type="button" data-level="${l.value}" aria-pressed="${l.value === 75}" class="${l.value === 75 ? 'active' : ''}" onclick="setSkillLevel(this)">${l.label}</button>`).join('')}
       </div>
-      <div class="form-row cols-2">
-        <div class="form-elem"><label>Skill Name</label>
-          <input type="text" class="form-input skill" onkeyup="generateCV()" placeholder="e.g. React.js"></div>
-        <div class="form-elem"><label>Proficiency: <span class="skill-pct">80</span>%</label>
-          <input type="range" class="form-input skill_level" min="10" max="100" value="80"
-            oninput="this.previousElementSibling.querySelector('.skill-pct').textContent=this.value; generateCV()"></div>
-      </div>
+      <button type="button" onclick="removeRepeaterItem(this)" class="remove-btn" aria-label="Delete skill"><i class="fas fa-trash-alt"></i></button>
     </div>`,
 
   projects: (id) => `
-    <div class="repeater-item" data-id="${id}">
-      <div class="repeater-item-header">
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-        <span class="item-label">Project</span>
-        <button onclick="removeRepeaterItem(this)" class="remove-btn"><i class="fas fa-trash-alt"></i></button>
-      </div>
-      <div class="form-row cols-3">
+    <div class="repeater-item" data-id="${id}" data-section="projects">
+      ${repeaterHeader('New project')}
+      <div class="form-row cols-2">
         <div class="form-elem"><label>Project Name</label>
           <input type="text" class="form-input proj_title" onkeyup="generateCV()" placeholder="e.g. Resume Builder"></div>
         <div class="form-elem"><label>Project Link</label>
           <input type="url" class="form-input proj_link" onkeyup="generateCV()" placeholder="https://github.com/..."></div>
+      </div>
+      <div class="form-row">
         <div class="form-elem"><label>Description</label>
-          <textarea class="form-input proj_description" rows="2" onkeyup="generateCV()" placeholder="What did you build and with what tech?"></textarea></div>
+          <textarea class="form-input proj_description" rows="3" data-count="400" onkeyup="generateCV()" placeholder="What did you build, with what tech, and what was the result?"></textarea>
+          <div class="field-meta"><span>Tip: name the tech and one concrete outcome.</span><span class="char-count"></span></div></div>
       </div>
     </div>`,
 
   achievements: (id) => `
-    <div class="repeater-item" data-id="${id}">
-      <div class="repeater-item-header">
-        <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
-        <span class="item-label">Achievement</span>
-        <button onclick="removeRepeaterItem(this)" class="remove-btn"><i class="fas fa-trash-alt"></i></button>
-      </div>
+    <div class="repeater-item" data-id="${id}" data-section="achievements">
+      ${repeaterHeader('New achievement')}
       <div class="form-row cols-2">
         <div class="form-elem"><label>Title</label>
           <input type="text" class="form-input achieve_title" onkeyup="generateCV()" placeholder="e.g. Dean's List 2023"></div>
@@ -733,9 +739,83 @@ function addRepeaterItem(section, prefill = {}) {
     const el = newItem.querySelector(`.${key}`);
     if (el) el.value = val;
   }
+  refreshItemUI(newItem);
 
   generateCV();
 }
+
+// ── CARD HELPERS (titles, collapse, skill level, counters) ──
+// Builds a card title from its own fields, e.g. "Software Engineer · Google".
+function updateItemLabel(item) {
+  const label = item?.querySelector('.item-label');
+  if (!label) return;
+  const v = cls => item.querySelector(`.${cls}`)?.value.trim() || '';
+  const join = (...parts) => parts.filter(Boolean).join(' · ');
+  const text = {
+    experience: () => join(v('exp_title'), v('exp_organization')),
+    education: () => join(v('edu_degree'), v('edu_school')),
+    projects: () => v('proj_title'),
+    achievements: () => v('achieve_title')
+  }[item.dataset.section]?.() || '';
+  label.textContent = text || label.dataset.fallback;
+  label.classList.toggle('is-fallback', !text);
+}
+
+function toggleRepeaterItem(btn) {
+  const item = btn.closest('.repeater-item');
+  const collapsed = item.classList.toggle('collapsed');
+  btn.setAttribute('aria-expanded', String(!collapsed));
+  btn.setAttribute('aria-label', collapsed ? 'Expand' : 'Collapse');
+}
+
+// Highlights the level button closest to the stored number (old resumes
+// may hold any value from the previous 10–100 slider).
+function syncSkillLevel(item) {
+  const input = item?.querySelector('.skill_level');
+  if (!input) return;
+  const value = Number(input.value) || 75;
+  const nearest = SKILL_LEVELS.reduce((a, b) => Math.abs(b.value - value) < Math.abs(a.value - value) ? b : a).value;
+  item.querySelectorAll('.skill-levels button').forEach(b => {
+    const on = Number(b.dataset.level) === nearest;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+
+function setSkillLevel(btn) {
+  const item = btn.closest('.repeater-item');
+  item.querySelector('.skill_level').value = btn.dataset.level;
+  syncSkillLevel(item);
+  generateCV();
+}
+
+// "123 / 500" under text areas that carry data-count.
+function updateCharCount(field) {
+  const max = Number(field?.dataset.count);
+  const counter = field?.closest('.form-elem')?.querySelector('.char-count');
+  if (!max || !counter) return;
+  const n = field.value.length;
+  counter.textContent = `${n} / ${max}`;
+  counter.classList.toggle('over', n > max);
+}
+
+function refreshItemUI(item) {
+  updateItemLabel(item);
+  syncSkillLevel(item);
+  item.querySelectorAll('[data-count]').forEach(updateCharCount);
+}
+
+// One listener keeps card titles and counters live while typing.
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (!(t instanceof HTMLElement)) return;
+  if (t.dataset.count) updateCharCount(t);
+  const item = t.closest('.repeater-item');
+  if (item) updateItemLabel(item);
+});
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-count]').forEach(updateCharCount);
+});
 
 function removeRepeaterItem(btn) {
   btn.closest('.repeater-item').remove();
@@ -984,14 +1064,42 @@ function initStepScrollSpy() {
 document.addEventListener('DOMContentLoaded', initStepScrollSpy);
 
 // ── IMAGE PREVIEW ──────────────────────────────────────
+function hasPhoto() {
+  const src = document.getElementById('image_dsp')?.getAttribute('src');
+  return !!src && src !== window.location.href;
+}
+
+// Shows the photo (or the placeholder icon) and the Remove button to match.
+function syncPhotoUI() {
+  const box = document.getElementById('photoUpload');
+  if (!box) return;
+  const on = hasPhoto();
+  box.classList.toggle('has-photo', on);
+  const text = box.querySelector('.photo-pick-text');
+  if (text) text.textContent = on ? 'Change' : 'Upload';
+}
+
+function removePhoto() {
+  const img = document.getElementById('image_dsp');
+  if (img) img.removeAttribute('src');
+  const input = document.getElementById('photoInput');
+  if (input) input.value = '';
+  syncPhotoUI();
+  generateCV();
+}
+
 function previewImage() {
   const fileInput = document.querySelector('.image');
-  const file = fileInput.files[0];
+  handlePhotoFile(fileInput.files[0]);
+}
+
+function handlePhotoFile(file) {
+  const fileInput = document.querySelector('.image');
   if (!file) return;
 
   if (!file.type.startsWith('image/')) {
     showToast('❌ Please select an image file', 'error');
-    fileInput.value = '';
+    if (fileInput) fileInput.value = '';
     return;
   }
 
@@ -1011,6 +1119,7 @@ function previewImage() {
       canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
 
       document.getElementById('image_dsp').src = canvas.toDataURL('image/jpeg', 0.8);
+      syncPhotoUI();
       generateCV();
     };
     img.onerror = () => showToast('❌ Could not read that image file', 'error');
@@ -1019,6 +1128,21 @@ function previewImage() {
   reader.onerror = () => showToast('❌ Could not read that image file', 'error');
   reader.readAsDataURL(file);
 }
+
+// Drag-and-drop a photo onto the upload box.
+function initPhotoDrop() {
+  const box = document.getElementById('photoUpload');
+  if (!box) return;
+  ['dragenter', 'dragover'].forEach(ev => box.addEventListener(ev, e => {
+    e.preventDefault(); box.classList.add('dragover');
+  }));
+  ['dragleave', 'drop'].forEach(ev => box.addEventListener(ev, e => {
+    e.preventDefault(); box.classList.remove('dragover');
+  }));
+  box.addEventListener('drop', e => handlePhotoFile(e.dataTransfer?.files?.[0]));
+  syncPhotoUI();
+}
+document.addEventListener('DOMContentLoaded', initPhotoDrop);
 
 // ── JSON IMPORT / EXPORT ───────────────────────────────
 function exportJSON() {
@@ -1115,13 +1239,8 @@ function restoreRepeaterSection(section, items, fieldMap) {
       if (value === undefined || value === null || value === '') return;
 
       el.value = value;
-
-      // Keep the skill-level % label in sync with its slider
-      if (cls === 'skill_level') {
-        const pctLabel = el.previousElementSibling?.querySelector('.skill-pct');
-        if (pctLabel) pctLabel.textContent = value;
-      }
     });
+    refreshItemUI(newItem);
 
     // "Currently working here" should also disable the end-date field,
     // same as when a user checks it by hand (see toggleCurrent()).
@@ -1157,11 +1276,16 @@ function restoreFromData(data) {
   setField('phoneno', personal.phoneno);
   setField('website', personal.website);
   setField('summary', personal.summary);
+  document.querySelectorAll('.form-section > .form-row [data-count], #section-personal [data-count]').forEach(updateCharCount);
 
   // Same reasoning for the profile photo — clear it when the resume being
   // loaded doesn't have one, don't leave the previous resume's photo showing.
   const imageEl = document.getElementById('image_dsp');
-  if (imageEl) imageEl.src = personal.image || '';
+  if (imageEl) {
+    if (personal.image) imageEl.src = personal.image;
+    else imageEl.removeAttribute('src');
+  }
+  syncPhotoUI();
 
   // Restore repeater sections
   restoreRepeaterSection('experience', data.experiences, SECTION_FIELD_MAPS.experience);

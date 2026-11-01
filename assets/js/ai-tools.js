@@ -304,7 +304,7 @@ async function checkATSWithAI() {
   }
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
-    showToast('Add your free Gemini API key in "Grammar & Tone Checker" below first', 'error');
+    showToast('Add your free Gemini API key at the top of AI Tools first', 'error');
     document.getElementById('geminiApiKey')?.focus();
     return;
   }
@@ -483,19 +483,46 @@ async function checkGrammarAndTone() {
   }
 }
 
+function getSavedApiKey() {
+  try { return localStorage.getItem('geminiApiKey') || ''; } catch (e) { return ''; }
+}
+
+// Badge next to the key box: saved / typed but not saved / not set.
+function updateApiKeyStatus() {
+  const status = document.getElementById('aiKeyStatus');
+  const input = document.getElementById('geminiApiKey');
+  if (!status || !input) return;
+  const typed = input.value.trim();
+  const saved = getSavedApiKey();
+  let state = 'none', text = 'Not set';
+  if (typed && typed === saved) { state = 'saved'; text = '✓ Saved'; }
+  else if (typed) { state = 'unsaved'; text = 'Not saved yet'; }
+  status.dataset.state = state;
+  status.textContent = text;
+}
+
 function saveApiKey() {
   const key = document.getElementById('geminiApiKey').value.trim();
-  if (key) {
-    localStorage.setItem('geminiApiKey', key);
-    showToast('✅ API key saved locally', 'success');
+  try {
+    if (key) {
+      localStorage.setItem('geminiApiKey', key);
+      showToast('✅ API key saved in this browser', 'success');
+    } else {
+      localStorage.removeItem('geminiApiKey');
+      showToast('API key removed from this browser', 'info');
+    }
+  } catch (e) {
+    showToast('❌ Could not save the key in this browser', 'error');
   }
+  updateApiKeyStatus();
 }
 
 // Load saved API key on page load
 document.addEventListener('DOMContentLoaded', () => {
-  const saved = localStorage.getItem('geminiApiKey');
-  if (saved) {
-    const el = document.getElementById('geminiApiKey');
-    if (el) el.value = saved;
-  }
+  const el = document.getElementById('geminiApiKey');
+  if (!el) return;
+  const saved = getSavedApiKey();
+  if (saved) el.value = saved;
+  el.addEventListener('input', updateApiKeyStatus);
+  updateApiKeyStatus();
 });

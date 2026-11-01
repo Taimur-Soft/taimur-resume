@@ -97,6 +97,8 @@
           <h3><i class="fas fa-palette"></i> Choose Template</h3>
         </div>
         <p class="template-section-note">15 Europass-format templates — same EU-recognized structure, 15 distinct looks.</p>
+        <div class="template-groups-mini">
+        <div class="tpl-group-label">Sidebar layout</div>
         <div class="template-grid">
           <div class="template-card active" data-template="aurora" onclick="switchTemplate('aurora')">
             <div class="template-thumb tp-thumb tp-sidebar" style="--side:#0f172a;--accent:#0f172a;--paper:#f5f5f5"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-lines"></span></div>
@@ -118,6 +120,9 @@
             <div class="template-thumb tp-thumb tp-sidebar" style="--side:#efe8d6;--accent:#8a7a55;--paper:#ffffff;--avatar:rgba(63,58,46,0.25);--side-ink:rgba(63,58,46,0.3)"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-lines"></span></div>
             <span>Ivory</span>
           </div>
+        </div>
+        <div class="tpl-group-label">Banner layout</div>
+        <div class="template-grid">
           <div class="template-card" data-template="sunrise" onclick="switchTemplate('sunrise')">
             <div class="template-thumb tp-thumb tp-banner" style="--band:linear-gradient(120deg,#f59e0b,#ea580c);--accent:#ea580c;--paper:#fffbeb"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-lines"></span><span class="tp-col"></span></div>
             <span>Sunrise</span>
@@ -138,6 +143,9 @@
             <div class="template-thumb tp-thumb tp-banner" style="--band:linear-gradient(120deg,#581c47,#3b0764);--accent:#581c47;--paper:#fdf4ff"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-lines"></span><span class="tp-col"></span></div>
             <span>Velvet</span>
           </div>
+        </div>
+        <div class="tpl-group-label">Timeline layout</div>
+        <div class="template-grid">
           <div class="template-card" data-template="pulse" onclick="switchTemplate('pulse')">
             <div class="template-thumb tp-thumb tp-timeline" style="--accent:#16a34a;--paper:#ffffff"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-rail"></span><span class="tp-lines"></span></div>
             <span>Pulse</span>
@@ -158,6 +166,7 @@
             <div class="template-thumb tp-thumb tp-timeline" style="--accent:#64748b;--paper:#ffffff"><span class="tp-avatar"></span><span class="tp-side-lines"></span><span class="tp-head"></span><span class="tp-rail"></span><span class="tp-lines"></span></div>
             <span>Quartz</span>
           </div>
+        </div>
         </div>
       </div>
 
@@ -196,9 +205,21 @@
         </div>
         <div class="form-row cols-3">
           <div class="form-elem">
-            <label>Profile Photo</label>
-            <input type="file" class="form-input image" accept="image/*" onchange="previewImage()">
-            <img id="image_dsp" src="" alt="" style="display:none;width:60px;height:60px;border-radius:50%;object-fit:cover;margin-top:6px">
+            <label for="photoInput">Profile Photo</label>
+            <div class="photo-upload" id="photoUpload">
+              <div class="photo-preview">
+                <img id="image_dsp" src="" alt="Your profile photo">
+                <i class="fas fa-user" aria-hidden="true"></i>
+              </div>
+              <div class="photo-actions">
+                <div class="photo-buttons">
+                  <label for="photoInput" class="photo-pick"><i class="fas fa-camera" aria-hidden="true"></i> <span class="photo-pick-text">Upload</span></label>
+                  <button type="button" class="photo-remove" onclick="removePhoto()" aria-label="Remove photo"><i class="fas fa-trash-alt" aria-hidden="true"></i></button>
+                </div>
+                <span class="photo-hint">or drop an image here</span>
+              </div>
+              <input type="file" id="photoInput" class="image" accept="image/*" onchange="previewImage()">
+            </div>
           </div>
           <div class="form-elem">
             <label>Designation / Title <span class="required">*</span></label>
@@ -228,7 +249,8 @@
         <div class="form-row">
           <div class="form-elem">
             <label>Professional Summary</label>
-            <textarea class="form-input summary" rows="3" onkeyup="generateCV()" placeholder="e.g. Passionate software engineer with 3+ years of experience building scalable web applications..."></textarea>
+            <textarea class="form-input summary" rows="4" data-count="600" onkeyup="generateCV()" placeholder="e.g. Passionate software engineer with 3+ years of experience building scalable web applications..."></textarea>
+            <div class="field-meta"><span>Tip: 2–4 sentences on who you are, what you do best, and what you want next.</span><span class="char-count"></span></div>
           </div>
         </div>
       </div>
@@ -327,10 +349,26 @@
           <h3><i class="fas fa-robot"></i> AI Tools</h3>
         </div>
 
+        <!-- Gemini key: shared by AI Match and Tone -->
+        <div class="ai-key-card">
+          <div class="ai-key-head">
+            <span class="ai-key-title"><i class="fas fa-key" aria-hidden="true"></i> Gemini API key</span>
+            <span id="aiKeyStatus" class="ai-key-status" aria-live="polite"></span>
+          </div>
+          <p class="hint-text">Powers <strong>AI Match</strong> and <strong>Tone</strong>. Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>. It's stored only in this browser and sent only to Google.</p>
+          <div class="ai-key-row">
+            <input type="password" id="geminiApiKey" class="form-input" autocomplete="off"
+              placeholder="Paste your Gemini API key" aria-label="Gemini API key">
+            <button onclick="saveApiKey()" class="btn-icon" title="Save key in this browser">
+              <i class="fas fa-save"></i> Save
+            </button>
+          </div>
+        </div>
+
         <!-- ATS Score -->
         <div class="ai-tool-card">
           <h4><i class="fas fa-chart-bar" style="color:var(--primary)"></i> ATS Match Checker</h4>
-          <p class="hint-text">Paste a job description. <strong>Keyword Score</strong> is instant and runs in your browser. <strong>AI Match</strong> uses Gemini to compare meaning, find missing skills, and rewrite weak bullet points (needs the free Gemini key below).</p>
+          <p class="hint-text">Paste a job description. <strong>Keyword Score</strong> is instant and runs in your browser. <strong>AI Match</strong> uses Gemini to compare meaning, find missing skills, and rewrite weak bullet points (uses the Gemini key above).</p>
           <textarea id="jobDescription" class="form-input" rows="5"
             placeholder="Paste the full job description here...&#10;&#10;e.g. We are looking for a Software Engineer with experience in React, Node.js, and REST APIs..."></textarea>
           <div class="ats-actions">
@@ -348,15 +386,7 @@
         <!-- Grammar & Tone -->
         <div class="ai-tool-card">
           <h4><i class="fas fa-magic" style="color:var(--warning)"></i> Grammar & Tone Checker</h4>
-          <p class="hint-text">Grammar via LanguageTool (free, no key needed) + Tone via Google Gemini (free API key required).</p>
-          <div class="ai-key-row">
-            <input type="password" id="geminiApiKey" class="form-input"
-              placeholder="Gemini API Key — get free at aistudio.google.com">
-            <button onclick="saveApiKey()" class="btn-icon" title="Save API key locally">
-              <i class="fas fa-save"></i>
-            </button>
-          </div>
-          <p class="hint-text" style="margin-bottom:10px">Your key is saved only in your browser. Never shared anywhere.</p>
+          <p class="hint-text" style="margin-bottom:10px">Grammar via LanguageTool (free, no key needed). Tone via Gemini, using the key above.</p>
           <button onclick="checkGrammarAndTone()" class="btn-primary">
             <i class="fas fa-spell-check"></i> Check Grammar & Tone
           </button>
