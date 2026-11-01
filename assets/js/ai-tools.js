@@ -161,6 +161,14 @@ async function callGemini(model, body, apiKey) {
   return response.json();
 }
 
+// Same request without the thinking setting, for models that don't accept
+// it (Gemini 2.5 models, used as the fallback, only know thinkingBudget).
+function withoutThinkingConfig(body) {
+  if (!body.generationConfig?.thinkingConfig) return body;
+  const { thinkingConfig, ...generationConfig } = body.generationConfig;
+  return { ...body, generationConfig };
+}
+
 // Tries the main model with retries, then the fallback model once.
 // onStatus(text) lets the caller show progress while it waits.
 async function callGeminiWithRetry(body, apiKey, onStatus = () => {}) {
@@ -170,6 +178,13 @@ async function callGeminiWithRetry(body, apiKey, onStatus = () => {}) {
       return await callGemini(GEMINI_MODEL, body, apiKey);
     } catch (e) {
       lastError = e;
+      // If a future model behind the "latest" alias rejects the thinking
+      // setting (400), drop it and try again straight away.
+      if (e.status === 400 && body.generationConfig?.thinkingConfig) {
+        body = withoutThinkingConfig(body);
+        attempt--;
+        continue;
+      }
       if (!isRetryableGeminiStatus(e.status)) throw e;
       if (attempt < GEMINI_RETRY_DELAYS_MS.length) {
         const wait = GEMINI_RETRY_DELAYS_MS[attempt];
@@ -180,7 +195,7 @@ async function callGeminiWithRetry(body, apiKey, onStatus = () => {}) {
   }
   onStatus('Gemini is still busy, trying a lighter model...');
   try {
-    return await callGemini(GEMINI_FALLBACK_MODEL, body, apiKey);
+    return await callGemini(GEMINI_FALLBACK_MODEL, withoutThinkingConfig(body), apiKey);
   } catch (e) {
     // Report the main model's error: the key already worked there, so a
     // fallback-only failure (e.g. that model isn't enabled for this key)
@@ -223,7 +238,7 @@ Respond in this exact JSON format:
     contents: [{ parts: [{ text: prompt }] }],
     // Newer models spend part of the token budget on internal reasoning,
     // so 1024 tokens could cut the JSON answer off midway.
-    generationConfig: { temperature: 0.3, maxOutputTokens: 4096, responseMimeType: 'application/json' }
+    generationConfig: { temperature: 0.3, maxOutputTokens: 4096, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'low' } }
   }, apiKey, onStatus);
 
   return parseGeminiJSON(data);
@@ -435,16 +450,25 @@ ${text.slice(0, 1500)}
 
 Respond only with JSON: {"bullets": ["...", "..."]}`;
 
-  const setLoading = (message) => {
-    box.innerHTML = `<div class="ai-loading"><i class="fas fa-spinner fa-spin"></i><span>${escapeHTML(message)}</span></div>`;
+  // Loading line with a live seconds counter, so the wait feels shorter
+  // and the user can see it hasn't stalled.
+  const started = Date.now();
+  let message = 'Rewriting with Gemini...';
+  const paint = () => {
+    const secs = Math.floor((Date.now() - started) / 1000);
+    box.innerHTML = `<div class="ai-loading"><i class="fas fa-spinner fa-spin"></i><span>${escapeHTML(message)}</span><span class="ai-elapsed">${secs}s</span></div>`;
   };
+  const setLoading = (text) => { message = text; paint(); };
+  const ticker = setInterval(paint, 1000);
   btn.disabled = true;
-  setLoading('Rewriting with Gemini...');
+  paint();
 
   try {
     const data = await callGeminiWithRetry({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.4, maxOutputTokens: 2048, responseMimeType: 'application/json' }
+      // A short rewrite needs little reasoning; "low" thinking answers much
+      // faster than the model's default ("medium").
+      generationConfig: { temperature: 0.4, maxOutputTokens: 2048, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'low' } }
     }, apiKey, setLoading);
     const bullets = (parseGeminiJSON(data).bullets || [])
       .map(b => String(b).replace(/^[\s•\-*]+/, '').trim())
@@ -471,8 +495,10 @@ Respond only with JSON: {"bullets": ["...", "..."]}`;
     });
     box.querySelector('.ai-dismiss').addEventListener('click', () => { box.innerHTML = ''; });
   } catch (e) {
+    clearInterval(ticker);
     box.innerHTML = `<div class="tone-error">⚠️ ${escapeHTML(e.message)}<br><small>${escapeHTML(geminiErrorHint(e.status))}</small></div>`;
   } finally {
+    clearInterval(ticker);
     btn.disabled = false;
   }
 }

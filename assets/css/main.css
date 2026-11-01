@@ -267,6 +267,7 @@ ol.step-list::before {
 .ai-improve-btn:disabled { opacity: 0.6; cursor: wait; }
 .ai-improve-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
 .ai-suggest:empty { display: none; }
+.ai-elapsed { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 12px; color: var(--text-muted); }
 .ai-suggest { margin-top: 8px; }
 .ai-suggest-card { padding: 12px 14px; border-radius: 8px; border: 1px solid var(--primary-soft-border); background: var(--primary-soft); }
 .ai-suggest-head { font-size: 12px; font-weight: 700; color: var(--primary); margin-bottom: 6px; display: flex; gap: 6px; align-items: center; }
