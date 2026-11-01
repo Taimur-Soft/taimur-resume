@@ -289,6 +289,17 @@ function collectFormData() {
     });
   });
 
+  // Languages (CEFR self-assessment)
+  const languages = [];
+  document.querySelectorAll('#languages-container .repeater-item').forEach(item => {
+    const lang = {
+      language: item.querySelector('.lang_name')?.value || '',
+      mother: item.querySelector('.lang_mother')?.checked || false
+    };
+    CEFR_SKILLS.forEach(s => { lang[s.key] = item.querySelector(`.lang_${s.key}`)?.value || ''; });
+    languages.push(lang);
+  });
+
   // Custom sections
   const customs = [];
   document.querySelectorAll('.custom-section-block').forEach(block => {
@@ -326,6 +337,7 @@ function collectFormData() {
     skills,
     projects,
     achievements,
+    languages,
     customSections: customs
   };
 }
@@ -411,6 +423,12 @@ function sanitizeResumeData(raw) {
       title: escapeHTML(a.title),
       description: escapeHTML(a.description)
     })),
+    // Only real CEFR codes get through; anything else becomes empty.
+    languages: (raw.languages || []).map(l => {
+      const lang = { language: escapeHTML(l.language), mother: !!l.mother };
+      CEFR_SKILLS.forEach(s => { lang[s.key] = CEFR_LEVELS.some(c => c.code === l[s.key]) ? l[s.key] : ''; });
+      return lang;
+    }),
     customSections: (raw.customSections || []).map(cs => ({
       name: escapeHTML(cs.name),
       items: (cs.items || []).map(i => ({
@@ -424,7 +442,7 @@ function sanitizeResumeData(raw) {
 // ── RESUME HTML BUILDER ────────────────────────────────
 function buildResumeHTML(rawData) {
   const data = sanitizeResumeData(rawData);
-  const { personal, experiences, educations, skills, projects, achievements, customSections } = data;
+  const { personal, experiences, educations, skills, projects, achievements, languages, customSections } = data;
 
   const fullName = [personal.firstname, personal.middlename, personal.lastname].filter(Boolean).join(' ');
   const formatDate = (d) => {
@@ -482,7 +500,7 @@ function buildResumeHTML(rawData) {
       </div>
       ${sub ? `<div class="eu-item-sub">${sub}</div>` : ''}
       ${link ? `<a href="${link}" class="eu-link" target="_blank" rel="noopener">↗ ${link}</a>` : ''}
-      ${desc ? `<p class="eu-item-desc">${desc}</p>` : ''}
+      ${desc ? `<p class="eu-item-desc">${desc.replace(/\n/g, '<br>')}</p>` : ''}
     </div>`;
 
   const expItems = experiences.filter(e => e.title || e.organization);
@@ -522,6 +540,22 @@ function buildResumeHTML(rawData) {
     <div class="eu-section">
       <h3><i class="fas fa-trophy"></i> Achievements</h3>
       ${achItems.map(a => euItem({ title: a.title, desc: a.description })).join('')}
+    </div>` : '';
+
+  // Europass-style language block: mother tongue(s) as a line, other
+  // languages as a CEFR grid (Listening / Reading / Speaking / Writing).
+  const motherTongues = languages.filter(l => l.language && l.mother);
+  const otherLanguages = languages.filter(l => l.language && !l.mother);
+  const languagesHTML = (motherTongues.length || otherLanguages.length) ? `
+    <div class="eu-section">
+      <h3><i class="fas fa-language"></i> Language Skills</h3>
+      ${motherTongues.length ? `<p class="eu-lang-mother"><strong>Mother tongue(s):</strong> ${motherTongues.map(l => l.language).join(', ')}</p>` : ''}
+      ${otherLanguages.length ? `
+      <table class="eu-lang-table">
+        <thead><tr><th scope="col">Other language(s)</th>${CEFR_SKILLS.map(s => `<th scope="col">${s.label}</th>`).join('')}</tr></thead>
+        <tbody>${otherLanguages.map(l => `<tr><th scope="row">${l.language}</th>${CEFR_SKILLS.map(s => `<td>${l[s.key] || '–'}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>
+      <p class="eu-lang-note">CEFR levels: A1–A2 basic user · B1–B2 independent user · C1–C2 proficient user</p>` : ''}
     </div>` : '';
 
   const customHTML = customSections.map(cs => cs.items.filter(i => i.title).length > 0 ? `
@@ -571,7 +605,7 @@ function buildResumeHTML(rawData) {
           ${skillsBarsHTML.replace('eu-section', 'eu-section eu-side-section')}
         </div>
         <div class="eu-main">
-          ${aboutMeHTML}${workExperienceHTML}${educationHTML}${projectsHTML}${achievementsHTML}${customHTML}
+          ${aboutMeHTML}${workExperienceHTML}${educationHTML}${languagesHTML}${projectsHTML}${achievementsHTML}${customHTML}
         </div>
       </div>`;
   }
@@ -590,7 +624,7 @@ function buildResumeHTML(rawData) {
         <div class="eu-contact-bar">${contactInlineHTML}</div>
         <div class="eu-body">
           <div class="eu-main">
-            ${aboutMeHTML}${workExperienceHTML}${projectsHTML}
+            ${aboutMeHTML}${workExperienceHTML}${projectsHTML}${languagesHTML}
           </div>
           <div class="eu-side-col">
             ${educationHTML}${skillsBarsHTML}${achievementsHTML}${customHTML}
@@ -612,7 +646,7 @@ function buildResumeHTML(rawData) {
       </div>
       ${aboutMeHTML}
       <div class="eu-tl-track">${workExperienceHTML}${educationHTML}</div>
-      ${skillsTagsHTML}${projectsHTML}${achievementsHTML}${customHTML}
+      ${skillsTagsHTML}${languagesHTML}${projectsHTML}${achievementsHTML}${customHTML}
     </div>`;
 }
 
@@ -627,6 +661,31 @@ const repeaterHeader = (fallback) => `
         <span class="item-label" data-fallback="${fallback}">${fallback}</span>
         <button type="button" onclick="removeRepeaterItem(this)" class="remove-btn" aria-label="Delete"><i class="fas fa-trash-alt"></i></button>
       </div>`;
+
+// Footer under a description box: tip on the left, AI button + counter on
+// the right, and a slot where an AI suggestion appears.
+const descMeta = (tip) => `
+          <div class="field-meta"><span>${tip}</span><span class="meta-right">
+            <button type="button" class="ai-improve-btn" onclick="improveDescription(this)"><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i> Improve with AI</button>
+            <span class="char-count"></span></span></div>
+          <div class="ai-suggest" aria-live="polite"></div>`;
+
+// Common European Framework of Reference for Languages (CEFR), as used in
+// the Europass CV's language self-assessment grid.
+const CEFR_LEVELS = [
+  { code: 'A1', name: 'Beginner' },
+  { code: 'A2', name: 'Elementary' },
+  { code: 'B1', name: 'Intermediate' },
+  { code: 'B2', name: 'Upper intermediate' },
+  { code: 'C1', name: 'Advanced' },
+  { code: 'C2', name: 'Proficient' }
+];
+const CEFR_SKILLS = [
+  { key: 'listening', label: 'Listening' },
+  { key: 'reading', label: 'Reading' },
+  { key: 'speaking', label: 'Speaking' },
+  { key: 'writing', label: 'Writing' }
+];
 
 const SKILL_LEVELS = [
   { value: 25, label: 'Beginner' },
@@ -657,7 +716,7 @@ const repeaterTemplates = {
       <div class="form-row">
         <div class="form-elem"><label>Description</label>
           <textarea class="form-input exp_description" rows="3" data-count="500" onkeyup="generateCV()" placeholder="What you did and what changed because of it, e.g. Built a dashboard that cut report time by 40%"></textarea>
-          <div class="field-meta"><span>Tip: start with an action verb and show a result.</span><span class="char-count"></span></div></div>
+          ${descMeta('Tip: start with an action verb and show a result.')}</div>
       </div>
     </div>`,
 
@@ -708,7 +767,7 @@ const repeaterTemplates = {
       <div class="form-row">
         <div class="form-elem"><label>Description</label>
           <textarea class="form-input proj_description" rows="3" data-count="400" onkeyup="generateCV()" placeholder="What did you build, with what tech, and what was the result?"></textarea>
-          <div class="field-meta"><span>Tip: name the tech and one concrete outcome.</span><span class="char-count"></span></div></div>
+          ${descMeta('Tip: name the tech and one concrete outcome.')}</div>
       </div>
     </div>`,
 
@@ -721,8 +780,34 @@ const repeaterTemplates = {
         <div class="form-elem"><label>Description</label>
           <input type="text" class="form-input achieve_description" onkeyup="generateCV()" placeholder="Brief description..."></div>
       </div>
+    </div>`,
+
+  languages: (id) => `
+    <div class="repeater-item lang-item" data-id="${id}" data-section="languages">
+      ${repeaterHeader('New language')}
+      <div class="form-row cols-2 lang-top">
+        <div class="form-elem"><label>Language</label>
+          <input type="text" class="form-input lang_name" onkeyup="generateCV()" placeholder="e.g. English"></div>
+        <div class="form-elem lang-mother-elem">
+          <label class="current-label lang-mother"><input type="checkbox" class="lang_mother" onchange="toggleMotherTongue(this)"> Mother tongue</label></div>
+      </div>
+      <div class="cefr-grid">
+        ${CEFR_SKILLS.map(s => `
+        <div class="form-elem"><label>${s.label}</label>
+          <select class="form-input lang_${s.key}" onchange="generateCV()">
+            <option value="">–</option>
+            ${CEFR_LEVELS.map(l => `<option value="${l.code}">${l.code} · ${l.name}</option>`).join('')}
+          </select></div>`).join('')}
+      </div>
     </div>`
 };
+
+function toggleMotherTongue(checkbox) {
+  const item = checkbox.closest('.repeater-item');
+  item.classList.toggle('is-mother', checkbox.checked);
+  updateItemLabel(item);
+  generateCV();
+}
 
 let itemCounter = 0;
 function addRepeaterItem(section, prefill = {}) {
@@ -755,7 +840,14 @@ function updateItemLabel(item) {
     experience: () => join(v('exp_title'), v('exp_organization')),
     education: () => join(v('edu_degree'), v('edu_school')),
     projects: () => v('proj_title'),
-    achievements: () => v('achieve_title')
+    achievements: () => v('achieve_title'),
+    languages: () => {
+      if (!v('lang_name')) return '';
+      if (item.querySelector('.lang_mother')?.checked) return join(v('lang_name'), 'Mother tongue');
+      const codes = CEFR_SKILLS.map(s => v(`lang_${s.key}`)).filter(Boolean).sort();
+      const range = codes.length ? (codes[0] === codes[codes.length - 1] ? codes[0] : `${codes[0]}–${codes[codes.length - 1]}`) : '';
+      return join(v('lang_name'), range);
+    }
   }[item.dataset.section]?.() || '';
   label.textContent = text || label.dataset.fallback;
   label.classList.toggle('is-fallback', !text);
@@ -800,6 +892,8 @@ function updateCharCount(field) {
 }
 
 function refreshItemUI(item) {
+  const mother = item.querySelector('.lang_mother');
+  if (mother) item.classList.toggle('is-mother', mother.checked);
   updateItemLabel(item);
   syncSkillLevel(item);
   item.querySelectorAll('[data-count]').forEach(updateCharCount);
@@ -818,7 +912,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function removeRepeaterItem(btn) {
-  btn.closest('.repeater-item').remove();
+  const item = btn.closest('.repeater-item');
+  const wasSkill = item.dataset.section === 'skills';
+  item.remove();
+  if (wasSkill) updateSkillSuggestions();
   generateCV();
 }
 
@@ -930,10 +1027,88 @@ function restoreCustomSections(customSectionsData) {
   generateCV();
 }
 
+// ── QUICK-ADD CUSTOM SECTIONS ──────────────────────────
+// One click adds a ready-named section with an example-shaped first item.
+const SECTION_PRESETS = {
+  Certifications: { title: 'e.g. AWS Certified Cloud Practitioner', description: 'e.g. Issuing organisation, 2024' },
+  Volunteering: { title: 'e.g. Volunteer Teacher', description: 'e.g. Organisation, city, 2023' },
+  Publications: { title: 'e.g. Paper or article title', description: 'e.g. Journal or conference, 2024' },
+  Awards: { title: 'e.g. Best Final-Year Project', description: 'e.g. Awarded by, year' },
+  Courses: { title: 'e.g. Machine Learning Specialization', description: 'e.g. Platform or institution, 2024' },
+  Interests: { title: 'e.g. Photography', description: 'e.g. Street and travel photography' }
+};
+
+function addPresetSection(name) {
+  const existing = [...document.querySelectorAll('.custom-section-block')]
+    .find(b => b.querySelector('.custom-section-name')?.textContent.trim().toLowerCase() === name.toLowerCase());
+  if (existing) {
+    existing.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showToast(`${name} is already added`, 'info');
+    return;
+  }
+  const id = addCustomSection(name);
+  addCustomItem(id);
+  const block = document.querySelector(`[data-cs-id="${id}"]`);
+  const preset = SECTION_PRESETS[name];
+  if (block && preset) {
+    block.querySelector('.custom_title').placeholder = preset.title;
+    block.querySelector('.custom_description').placeholder = preset.description;
+  }
+  block?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  block?.querySelector('.custom_title')?.focus({ preventScroll: true });
+}
+
+// ── SKILL SUGGESTIONS ──────────────────────────────────
+// Matches the job title against common roles and suggests skills that
+// aren't on the resume yet. Runs fully in the browser, no AI call.
+const SKILL_SUGGESTIONS = [
+  { match: /front.?end|react|angular|vue|web dev|ui dev/i, skills: ['JavaScript', 'TypeScript', 'React', 'HTML & CSS', 'Next.js', 'Tailwind CSS', 'Accessibility (WCAG)', 'Git'] },
+  { match: /back.?end|node|api|server|java\b|python dev|php|laravel|django/i, skills: ['Node.js', 'REST APIs', 'SQL', 'PostgreSQL', 'Docker', 'Authentication', 'Testing', 'Git'] },
+  { match: /full.?stack|software|developer|programmer|coder/i, skills: ['JavaScript', 'TypeScript', 'React', 'Node.js', 'SQL', 'Git', 'Docker', 'Testing'] },
+  { match: /data|analyst|scien|machine learning|\bml\b|\bai\b/i, skills: ['Python', 'SQL', 'Pandas', 'Machine Learning', 'Data Visualization', 'Statistics', 'Power BI', 'Excel'] },
+  { match: /design|\bui\b|\bux\b/i, skills: ['Figma', 'UI Design', 'UX Research', 'Prototyping', 'Design Systems', 'Accessibility (WCAG)', 'User Testing'] },
+  { match: /devops|cloud|sre|infrastructure/i, skills: ['Docker', 'Kubernetes', 'AWS', 'CI/CD', 'Linux', 'Terraform', 'Monitoring'] },
+  { match: /mobile|android|ios|flutter/i, skills: ['Flutter', 'Kotlin', 'Swift', 'React Native', 'Firebase', 'REST APIs'] },
+  { match: /market|seo|content|social media/i, skills: ['SEO', 'Content Marketing', 'Google Analytics', 'Social Media', 'Copywriting', 'Email Marketing'] }
+];
+const SOFT_SKILLS = ['Communication', 'Teamwork', 'Problem Solving', 'Time Management', 'Adaptability'];
+
+function updateSkillSuggestions() {
+  const box = document.getElementById('skillSuggest');
+  if (!box) return;
+  const title = document.querySelector('.designation')?.value.trim() || '';
+  const have = new Set([...document.querySelectorAll('#skills-container .skill')].map(i => i.value.trim().toLowerCase()).filter(Boolean));
+  const role = SKILL_SUGGESTIONS.find(r => r.match.test(title));
+  const pool = role ? [...role.skills, ...SOFT_SKILLS.slice(0, 2)] : SOFT_SKILLS;
+  const picks = pool.filter(s => !have.has(s.toLowerCase())).slice(0, 8);
+
+  if (!picks.length) { box.innerHTML = ''; return; }
+  const heading = title && role ? `Suggested for “${escapeHTML(title)}”:` : (title ? 'Suggested:' : 'Add your job title in Personal Info for tailored suggestions. Popular:');
+  box.innerHTML = `<span class="quick-add-label">${heading}</span>` +
+    picks.map(s => `<button type="button" class="chip" data-skill="${escapeHTML(s)}"><i class="fas fa-plus" aria-hidden="true"></i> ${escapeHTML(s)}</button>`).join('');
+}
+
+function addSuggestedSkill(name) {
+  // Fill the first empty skill row if there is one, otherwise add a row.
+  const empty = [...document.querySelectorAll('#skills-container .skill')].find(i => !i.value.trim());
+  if (empty) { empty.value = name; refreshItemUI(empty.closest('.repeater-item')); generateCV(); }
+  else addRepeaterItem('skills', { skill: name });
+  updateSkillSuggestions();
+}
+
+document.addEventListener('click', e => {
+  const chip = e.target.closest?.('#skillSuggest .chip');
+  if (chip) addSuggestedSkill(chip.dataset.skill);
+});
+document.addEventListener('input', e => {
+  if (e.target.matches?.('.designation, #skills-container .skill')) updateSkillSuggestions();
+});
+document.addEventListener('DOMContentLoaded', updateSkillSuggestions);
+
 // ── DRAG & DROP SECTIONS ───────────────────────────────
 function initSortableSections() {
   // Sort repeater items within containers
-  ['experience', 'education', 'skills', 'projects', 'achievements'].forEach(section => {
+  ['experience', 'education', 'skills', 'projects', 'achievements', 'languages'].forEach(section => {
     const container = document.getElementById(`${section}-container`);
     if (container && typeof Sortable !== 'undefined') {
       Sortable.create(container, {
@@ -985,7 +1160,8 @@ function updateStepChecks() {
     education: document.querySelector('.edu_school')?.value,
     skills: document.querySelector('.skill')?.value,
     projects: document.querySelector('.proj_title')?.value,
-    achievements: document.querySelector('.achieve_title')?.value
+    achievements: document.querySelector('.achieve_title')?.value,
+    languages: document.querySelector('.lang_name')?.value
   };
 
   for (const [step, filled] of Object.entries(steps)) {
@@ -1208,6 +1384,14 @@ const SECTION_FIELD_MAPS = {
   achievements: [
     { data: 'title', cls: 'achieve_title' },
     { data: 'description', cls: 'achieve_description' }
+  ],
+  languages: [
+    { data: 'language', cls: 'lang_name' },
+    { data: 'mother', cls: 'lang_mother' },
+    { data: 'listening', cls: 'lang_listening' },
+    { data: 'reading', cls: 'lang_reading' },
+    { data: 'speaking', cls: 'lang_speaking' },
+    { data: 'writing', cls: 'lang_writing' }
   ]
 };
 
@@ -1293,6 +1477,8 @@ function restoreFromData(data) {
   restoreRepeaterSection('skills', data.skills, SECTION_FIELD_MAPS.skills);
   restoreRepeaterSection('projects', data.projects, SECTION_FIELD_MAPS.projects);
   restoreRepeaterSection('achievements', data.achievements, SECTION_FIELD_MAPS.achievements);
+  restoreRepeaterSection('languages', data.languages, SECTION_FIELD_MAPS.languages);
+  updateSkillSuggestions();
   restoreCustomSections(data.customSections);
 
   generateCV();

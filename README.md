@@ -16,7 +16,10 @@ A free, browser-based resume builder with a live preview, 15 Europass-format tem
   - *Timeline:* Pulse, Meridian, Zenith, Canvas, Quartz
 - **Matching accent colours.** Each template sets its own heading, rule and link colour to fit its palette.
 - **Guided sections:** personal info, experience, education, skills, projects and achievements, with a sidebar progress tracker.
-- **Custom sections** such as Certifications, Languages, Volunteering or Publications.
+- **Language skills on the CEFR scale.** Each language is rated A1–C2 for listening, reading, speaking and writing, and mother tongues are listed separately, matching the Europass CV language grid.
+- **Custom sections** such as Certifications, Volunteering, Publications or Awards, with one-click presets.
+- **Skill suggestions** based on the job title (for example a Frontend Developer is offered React, TypeScript and accessibility), plus four clear skill levels.
+- **Writing help:** tips and character counters on longer fields, and cards that title themselves (e.g. "Software Engineer · Google") and can be collapsed.
 - **Drag-and-drop ordering** of sections (SortableJS).
 - **Field validation** for email, phone and URL, shown on blur without blocking input.
 
@@ -25,6 +28,7 @@ A free, browser-based resume builder with a live preview, 15 Europass-format tem
 - **AI job match.** Google Gemini compares the resume with the job by meaning rather than exact words (so "JS" counts as "JavaScript"), gives a match score, lists what matches and which required skills are missing, and rewrites up to three weak bullet points for that job. It is told never to invent experience: where a number would help, it leaves a placeholder such as `[X%]` for the user to fill in.
 - **Grammar check** through the public [LanguageTool](https://languagetool.org) API (no key needed).
 - **Tone analysis** through Google Gemini.
+- **Improve with AI** on any experience or project description: Gemini rewrites it into 2–4 strong bullet points using only the user's facts, shown as a suggestion to accept or dismiss.
 - Both Gemini tools use the user's own free API key, stored only in their browser. Busy or rate-limited requests are retried with exponential backoff and then fall back to a lighter model.
 - **GitHub import.** Enter a username to fill in name, bio, location and website, and add up to five top non-fork repositories as projects.
 

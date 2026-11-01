@@ -235,6 +235,45 @@ ol.step-list::before {
 .form-row.cols-3 > * { flex: 1; min-width: 0; }
 .form-row.cols-2 > * { flex: 1; min-width: 0; }
 
+/* Chips: quick-add sections and skill suggestions */
+.quick-add, .skill-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 14px; }
+.skill-suggest:empty { display: none; }
+.quick-add-label { font-size: 12px; color: var(--text-muted); margin-right: 2px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 99px;
+  font-size: 12px; font-weight: 600; color: var(--primary); background: var(--primary-soft);
+  border: 1px solid var(--primary-soft-border); transition: background 0.15s, transform 0.15s;
+}
+.chip i { font-size: 10px; }
+.chip:hover { background: var(--primary-soft-hover); transform: translateY(-1px); }
+.chip:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
+.section-intro { font-size: 12.5px; color: var(--text-muted); line-height: 1.55; margin: -6px 0 14px; }
+
+/* Languages (CEFR) */
+.lang-top { align-items: flex-end; }
+.lang-mother-elem { justify-content: flex-end; padding-bottom: 9px; }
+.cefr-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.lang-item.is-mother .cefr-grid { display: none; }
+.lang-item select.form-input { padding: 8px 10px; }
+
+/* "Improve with AI" under descriptions */
+.meta-right { display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.ai-improve-btn {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 99px;
+  font-size: 11.5px; font-weight: 600; background: none; color: var(--primary);
+  border: 1px solid var(--primary-soft-border); white-space: nowrap;
+}
+.ai-improve-btn:hover { background: var(--primary-soft); }
+.ai-improve-btn:disabled { opacity: 0.6; cursor: wait; }
+.ai-improve-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
+.ai-suggest:empty { display: none; }
+.ai-suggest { margin-top: 8px; }
+.ai-suggest-card { padding: 12px 14px; border-radius: 8px; border: 1px solid var(--primary-soft-border); background: var(--primary-soft); }
+.ai-suggest-head { font-size: 12px; font-weight: 700; color: var(--primary); margin-bottom: 6px; display: flex; gap: 6px; align-items: center; }
+.ai-suggest-card ul { padding-left: 18px; font-size: 13px; line-height: 1.6; color: var(--text); }
+.ai-suggest-card .hint-text { margin: 6px 0 10px; }
+.ai-suggest-actions { display: flex; gap: 8px; }
+
 /* Character counter + tip under longer text fields */
 .field-meta { display: flex; justify-content: space-between; gap: 12px; font-size: 11.5px; color: var(--text-muted); }
 .char-count { white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -517,6 +556,18 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 .eu-skill-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .eu-skill-tag { padding: 3px 10px; border-radius: 99px; background: #f1f5f9; border: 1px solid var(--border); font-size: 10px; font-weight: 600; color: #334155; }
 .eu-photo { object-fit: cover; }
+
+/* Europass language block */
+.eu-lang-mother { font-size: 10px; color: #475569; margin-bottom: 8px; }
+.eu-lang-mother strong { color: var(--eu-heading-color, #1e293b); }
+.eu-lang-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 9.5px; color: #334155; }
+.eu-lang-table th, .eu-lang-table td { padding: 4px 2px; border-bottom: 1px solid #e2e8f0; text-align: center; overflow-wrap: anywhere; }
+.eu-lang-table thead th:first-child { width: 30%; }
+.eu-lang-table thead th { font-size: 7.5px; font-weight: 700; color: var(--resume-accent); }
+.eu-lang-table thead th:first-child, .eu-lang-table tbody th { text-align: left; }
+.eu-lang-table tbody th { font-weight: 700; color: var(--eu-heading-color, #1e293b); }
+.eu-lang-table td { font-weight: 600; font-variant-numeric: tabular-nums; }
+.eu-lang-note { font-size: 8px; color: #94a3b8; margin-top: 4px; }
 .eu-photo-placeholder { display: flex; align-items: center; justify-content: center; }
 
 /* ── LAYOUT 1: SIDEBAR (Aurora · Emerald · Slate · Coral · Ivory) ──── */
@@ -818,6 +869,9 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
   /* Repeater item: tighter */
   .repeater-item { padding: 12px; }
   .repeater-item.skill-item { flex-wrap: wrap; }
+  .cefr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .field-meta { flex-direction: column; gap: 4px; }
+  .meta-right { justify-content: space-between; }
   .skill-levels { order: 3; width: 100%; }
   .skill-levels button { flex: 1; padding: 6px 4px; }
   .repeater-item-header { margin-bottom: 10px; padding-bottom: 8px; }

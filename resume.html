@@ -72,6 +72,7 @@
           <li><button type="button" class="step-item" data-step="skills" onclick="scrollToSection('skills')"><span class="step-marker"><span class="step-num">5</span><i class="fas fa-check step-done" aria-hidden="true"></i></span><span class="step-label">Skills</span><span class="step-now">Now</span></button></li>
           <li><button type="button" class="step-item" data-step="projects" onclick="scrollToSection('projects')"><span class="step-marker"><span class="step-num">6</span><i class="fas fa-check step-done" aria-hidden="true"></i></span><span class="step-label">Projects</span><span class="step-now">Now</span></button></li>
           <li><button type="button" class="step-item" data-step="achievements" onclick="scrollToSection('achievements')"><span class="step-marker"><span class="step-num">7</span><i class="fas fa-check step-done" aria-hidden="true"></i></span><span class="step-label">Achievements</span><span class="step-now">Now</span></button></li>
+          <li><button type="button" class="step-item" data-step="languages" onclick="scrollToSection('languages')"><span class="step-marker"><span class="step-num">8</span><i class="fas fa-check step-done" aria-hidden="true"></i></span><span class="step-label">Languages</span><span class="step-now">Now</span></button></li>
         </ol>
         <div class="step-group-label">Extras</div>
         <ul class="step-list">
@@ -291,6 +292,7 @@
             <i class="fas fa-plus"></i> Add
           </button>
         </div>
+        <div class="skill-suggest" id="skillSuggest" aria-live="polite"></div>
         <div class="repeater-container" id="skills-container"></div>
         <button class="add-item-btn-secondary" onclick="addRepeaterItem('skills')">
           <i class="fas fa-plus"></i> Add Skill
@@ -325,6 +327,21 @@
         </button>
       </div>
 
+      <!-- Languages (Europass / CEFR) -->
+      <div class="form-section" id="section-languages">
+        <div class="section-header">
+          <h3><i class="fas fa-language"></i> Languages</h3>
+          <button class="add-item-btn" onclick="addRepeaterItem('languages')">
+            <i class="fas fa-plus"></i> Add
+          </button>
+        </div>
+        <p class="section-intro">Rate each language on the European <strong>CEFR</strong> scale, from A1 (beginner) to C2 (near-native), the same way the official Europass CV does. <a href="https://europass.europa.eu/en/common-european-framework-reference-language-skills" target="_blank" rel="noopener">What do the levels mean?</a></p>
+        <div class="repeater-container" id="languages-container"></div>
+        <button class="add-item-btn-secondary" onclick="addRepeaterItem('languages')">
+          <i class="fas fa-plus"></i> Add Language
+        </button>
+      </div>
+
       <!-- Custom Sections -->
       <div class="form-section" id="section-custom">
         <div class="section-header">
@@ -333,10 +350,19 @@
             <i class="fas fa-plus"></i> New Section
           </button>
         </div>
+        <div class="quick-add">
+          <span class="quick-add-label">Quick add:</span>
+          <button type="button" class="chip" onclick="addPresetSection('Certifications')"><i class="fas fa-certificate" aria-hidden="true"></i> Certifications</button>
+          <button type="button" class="chip" onclick="addPresetSection('Volunteering')"><i class="fas fa-hand-holding-heart" aria-hidden="true"></i> Volunteering</button>
+          <button type="button" class="chip" onclick="addPresetSection('Publications')"><i class="fas fa-book" aria-hidden="true"></i> Publications</button>
+          <button type="button" class="chip" onclick="addPresetSection('Awards')"><i class="fas fa-award" aria-hidden="true"></i> Awards</button>
+          <button type="button" class="chip" onclick="addPresetSection('Courses')"><i class="fas fa-chalkboard-user" aria-hidden="true"></i> Courses</button>
+          <button type="button" class="chip" onclick="addPresetSection('Interests')"><i class="fas fa-heart" aria-hidden="true"></i> Interests</button>
+        </div>
         <div id="custom-sections-container"></div>
         <div class="empty-state" id="custom-empty">
           <i class="fas fa-layer-group"></i>
-          <p>Add sections like Certifications, Languages, Volunteering, Publications...</p>
+          <p>Pick a section above, or create your own with any name.</p>
           <button onclick="handleAddCustomSectionClick()" class="btn-secondary">
             <i class="fas fa-plus"></i> Add Custom Section
           </button>

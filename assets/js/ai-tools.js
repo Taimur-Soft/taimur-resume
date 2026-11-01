@@ -391,6 +391,93 @@ function renderAIMatch(r) {
 }
 
 
+// ── 5. IMPROVE ONE DESCRIPTION (Gemini) ───────────────
+// "Improve with AI" under each experience / project description. Rewrites
+// what the user wrote into 2–4 strong bullet points, using only their
+// facts, and shows it as a suggestion they can accept or dismiss.
+async function improveDescription(btn) {
+  const elem = btn.closest('.form-elem');
+  const field = elem.querySelector('textarea');
+  const item = btn.closest('.repeater-item');
+  const box = elem.querySelector('.ai-suggest');
+  const text = field.value.trim();
+
+  if (text.length < 10) {
+    showToast('Write a few words about it first, then let AI polish them', 'error');
+    field.focus();
+    return;
+  }
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    showToast('Add your free Gemini API key at the top of AI Tools first', 'error');
+    if (typeof scrollToSection === 'function') scrollToSection('aitools');
+    setTimeout(() => document.getElementById('geminiApiKey')?.focus(), 600);
+    return;
+  }
+
+  const val = cls => item.querySelector(`.${cls}`)?.value.trim() || '';
+  const context = item.dataset.section === 'projects'
+    ? `a project called "${val('proj_title') || 'untitled'}"`
+    : `a role as "${val('exp_title') || 'unknown title'}" at "${val('exp_organization') || 'unknown company'}"`;
+
+  const prompt = `You are an expert resume writer. Rewrite this description of ${context} into 2 to 4 resume bullet points.
+
+Rules:
+- Use only facts that appear in the text. Never invent employers, tools, numbers or results.
+- Start each bullet with a strong past-tense action verb (Built, Led, Reduced...).
+- Where a number would make the impact clearer but none is given, add a placeholder in square brackets, e.g. [X%] or [number of users].
+- Keep each bullet under 25 words. No bullet symbols, no trailing full stops.
+
+Text:
+"""
+${text.slice(0, 1500)}
+"""
+
+Respond only with JSON: {"bullets": ["...", "..."]}`;
+
+  const setLoading = (message) => {
+    box.innerHTML = `<div class="ai-loading"><i class="fas fa-spinner fa-spin"></i><span>${escapeHTML(message)}</span></div>`;
+  };
+  btn.disabled = true;
+  setLoading('Rewriting with Gemini...');
+
+  try {
+    const data = await callGeminiWithRetry({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.4, maxOutputTokens: 2048, responseMimeType: 'application/json' }
+    }, apiKey, setLoading);
+    const bullets = (parseGeminiJSON(data).bullets || [])
+      .map(b => String(b).replace(/^[\s•\-*]+/, '').trim())
+      .filter(Boolean)
+      .slice(0, 4);
+    if (!bullets.length) throw new Error('Gemini did not return any bullet points');
+
+    box.innerHTML = `
+      <div class="ai-suggest-card">
+        <div class="ai-suggest-head"><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i> Suggested rewrite</div>
+        <ul>${bullets.map(b => `<li>${escapeHTML(b)}</li>`).join('')}</ul>
+        <p class="hint-text">Replace anything in [brackets] with your real numbers, or delete it.</p>
+        <div class="ai-suggest-actions">
+          <button type="button" class="btn-primary ai-use">Use this</button>
+          <button type="button" class="btn-icon ai-dismiss">Dismiss</button>
+        </div>
+      </div>`;
+    box.querySelector('.ai-use').addEventListener('click', () => {
+      field.value = bullets.map(b => `• ${b}`).join('\n');
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      box.innerHTML = '';
+      generateCV();
+      showToast('✅ Description updated', 'success');
+    });
+    box.querySelector('.ai-dismiss').addEventListener('click', () => { box.innerHTML = ''; });
+  } catch (e) {
+    box.innerHTML = `<div class="tone-error">⚠️ ${escapeHTML(e.message)}<br><small>${escapeHTML(geminiErrorHint(e.status))}</small></div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+
 // ── COMBINED: Grammar + Tone ───────────────────────────
 async function checkGrammarAndTone() {
   const apiKey = getGeminiApiKey();
