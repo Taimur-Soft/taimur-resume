@@ -160,7 +160,10 @@ async function silentSaveToCloud() {
       // flight — otherwise we'd yank the app back onto this row (or, once
       // that other resume's own save fires, have it write into this row
       // by mistake).
-      if (myVersion === resumeContextVersion) setActiveCloudResumeId(inserted.id);
+      if (myVersion === resumeContextVersion) {
+        setActiveCloudResumeId(inserted.id);
+        setActiveCloudResumeName(inserted.name || name);
+      }
     }
     if (myVersion !== resumeContextVersion) return;
     setCloudSyncStatus('synced');
