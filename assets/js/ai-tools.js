@@ -299,6 +299,7 @@ async function callSiteGemini(body, onStatus = () => {}) {
     const err = new GeminiError(data.error || fallbackMsg, response.status);
     err.site = true;
     err.code = data.code;
+    err.details = data.details || '';
     throw err;
   }
   if (data.usage) siteAIUsage = data.usage;
@@ -347,7 +348,7 @@ async function callGeminiWithRetry(body, apiKey, onStatus = () => {}) {
 // A hint that matches what actually went wrong, instead of always blaming the key.
 function geminiErrorHint(status, err) {
   // The site's server already writes a complete, user-facing message.
-  if (err?.site) return '';
+  if (err?.site) return err.details ? `Details: ${err.details}` : '';
   if (status === 400 || status === 401 || status === 403) return 'Check that your Gemini API key above is correct.';
   if (status === 429) return 'You have hit the free usage limit for now. Wait a minute and try again.';
   if (status >= 500) return "Google's servers are busy right now. Your key is fine, please try again in a minute.";
