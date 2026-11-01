@@ -1,0 +1,46 @@
+/* =====================================================
+   Template thumbnails: a small sketch of each layout
+   (photo, heading, text lines) used by the homepage gallery
+   and the builder's template picker.
+
+   Colors come from inline custom properties on each thumb:
+   --side (sidebar column), --band (banner), --accent,
+   --paper, and optional --avatar / --side-ink.
+   Sizes are in em, so a container only sets font-size to scale
+   the whole sketch (8px suits a ~128px-tall card).
+   ===================================================== */
+
+.tp-thumb { position: relative; overflow: hidden; background: var(--paper, #ffffff); }
+.tp-thumb > span { position: absolute; display: block; }
+
+.tp-avatar { width: 2.25em; height: 2.25em; border-radius: 50%; background: var(--avatar, rgba(255, 255, 255, 0.6)); }
+.tp-head { height: 0.5em; border-radius: 1em; background: var(--accent); }
+.tp-lines { background: repeating-linear-gradient(to bottom, rgba(51, 65, 85, 0.22) 0 0.375em, transparent 0.375em 1em); }
+.tp-side-lines { background: repeating-linear-gradient(to bottom, var(--side-ink, rgba(255, 255, 255, 0.45)) 0 0.25em, transparent 0.25em 0.875em); }
+
+/* Sidebar layout: coloured column on the left */
+.tp-sidebar::before { content: ''; position: absolute; inset: 0 62% 0 0; background: var(--side); }
+.tp-sidebar .tp-avatar { top: 11%; left: calc(19% - 1.125em); }
+.tp-sidebar .tp-side-lines { top: 33%; left: 8%; width: 22%; bottom: 31%; }
+.tp-sidebar .tp-head { top: 11%; left: 45%; width: 30%; }
+.tp-sidebar .tp-lines { top: 20%; left: 45%; right: 9%; bottom: 11%; }
+
+/* Banner layout: header band, then two columns */
+.tp-banner::before { content: ''; position: absolute; inset: 0 0 68% 0; background: var(--band); }
+.tp-banner .tp-avatar { top: 8.5%; left: 8%; }
+.tp-banner .tp-side-lines { top: 12%; left: calc(8% + 3em); width: 42%; height: 1.375em; }
+.tp-banner .tp-head { top: 39%; left: 8%; width: 34%; }
+.tp-banner .tp-lines { top: 48%; left: 8%; right: 40%; bottom: 9%; }
+.tp-banner .tp-col { top: 39%; right: 7%; width: 28%; bottom: 9%; background: repeating-linear-gradient(to bottom, rgba(51, 65, 85, 0.14) 0 0.375em, transparent 0.375em 1em); }
+
+/* Timeline layout: header rule, then a rail with markers */
+.tp-timeline .tp-avatar { top: 9%; left: 8%; background: transparent; border: 0.25em solid var(--accent); }
+.tp-timeline .tp-side-lines { top: 12%; left: calc(8% + 3em); width: 45%; height: 1.375em; --side-ink: rgba(51, 65, 85, 0.35); }
+.tp-timeline .tp-head { top: 30%; left: 8%; right: 8%; height: 0.25em; }
+.tp-timeline .tp-rail { top: 39%; left: 10.5%; width: 0.25em; bottom: 9%; background: var(--accent); }
+.tp-timeline .tp-rail::before, .tp-timeline .tp-rail::after {
+  content: ''; position: absolute; left: -0.375em; width: 1em; height: 1em; border-radius: 50%; background: var(--accent);
+}
+.tp-timeline .tp-rail::before { top: 3%; }
+.tp-timeline .tp-rail::after { top: 50%; }
+.tp-timeline .tp-lines { top: 41%; left: calc(10.5% + 1.5em); right: 8%; bottom: 9%; }

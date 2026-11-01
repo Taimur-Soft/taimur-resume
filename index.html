@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="assets/css/theme.css">
+  <link rel="stylesheet" href="assets/css/template-thumbs.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
@@ -131,35 +132,8 @@
     .tp-name i { font-size: 11px; opacity: 0; transform: translateX(-4px); transition: opacity 0.15s, transform 0.15s; color: var(--primary); }
     .template-preview:hover .tp-name i, .template-preview:focus-visible .tp-name i { opacity: 1; transform: none; }
 
-    /* Mini resume sketch. Colors come from inline --side / --band / --accent / --paper. */
-    .tp-thumb { position: relative; height: 128px; background: var(--paper, #ffffff); overflow: hidden; border-bottom: 1px solid var(--border); }
-    .tp-thumb > span { position: absolute; display: block; }
-    .tp-avatar { width: 18px; height: 18px; border-radius: 50%; background: var(--avatar, rgba(255,255,255,0.6)); }
-    .tp-head { height: 4px; border-radius: 2px; background: var(--accent); }
-    .tp-lines { background: repeating-linear-gradient(to bottom, rgba(51,65,85,0.22) 0 3px, transparent 3px 8px); }
-    .tp-side-lines { background: repeating-linear-gradient(to bottom, var(--side-ink, rgba(255,255,255,0.45)) 0 2px, transparent 2px 7px); }
-    /* Sidebar layout */
-    .tp-sidebar::before { content: ''; position: absolute; inset: 0 62% 0 0; background: var(--side); }
-    .tp-sidebar .tp-avatar { top: 14px; left: calc(19% - 9px); }
-    .tp-sidebar .tp-side-lines { top: 42px; left: 8%; width: 22%; bottom: 40px; }
-    .tp-sidebar .tp-head { top: 14px; left: 45%; width: 30%; }
-    .tp-sidebar .tp-lines { top: 26px; left: 45%; right: 9%; bottom: 14px; }
-    /* Banner layout */
-    .tp-banner::before { content: ''; position: absolute; inset: 0 0 68% 0; background: var(--band); }
-    .tp-banner .tp-avatar { top: 11px; left: 12px; }
-    .tp-banner .tp-side-lines { top: 15px; left: 38px; width: 42%; height: 11px; }
-    .tp-banner .tp-head { top: 50px; left: 12px; width: 34%; }
-    .tp-banner .tp-lines { top: 62px; left: 12px; right: 40%; bottom: 12px; }
-    .tp-banner .tp-col { top: 50px; right: 10px; width: 28%; bottom: 12px; background: repeating-linear-gradient(to bottom, rgba(51,65,85,0.14) 0 3px, transparent 3px 8px); }
-    /* Timeline layout */
-    .tp-timeline .tp-avatar { top: 12px; left: 12px; background: transparent; border: 2px solid var(--accent); }
-    .tp-timeline .tp-side-lines { top: 15px; left: 38px; width: 45%; height: 11px; --side-ink: rgba(51,65,85,0.35); }
-    .tp-timeline .tp-head { top: 38px; left: 12px; right: 12px; height: 2px; }
-    .tp-timeline .tp-rail { top: 50px; left: 16px; width: 2px; bottom: 12px; background: var(--accent); }
-    .tp-timeline .tp-rail::before, .tp-timeline .tp-rail::after { content: ''; position: absolute; left: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
-    .tp-timeline .tp-rail::before { top: 4px; }
-    .tp-timeline .tp-rail::after { top: 38px; }
-    .tp-timeline .tp-lines { top: 52px; left: 28px; right: 12px; bottom: 12px; }
+    /* Sketch drawing lives in template-thumbs.css; here only the size. */
+    .template-preview .tp-thumb { height: 128px; font-size: 8px; border-bottom: 1px solid var(--border); }
 
     @media (prefers-reduced-motion: reduce) {
       .template-preview, .tp-name i { transition: none; }
