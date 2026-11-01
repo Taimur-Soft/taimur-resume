@@ -378,13 +378,13 @@
         <!-- Gemini key: shared by AI Match and Tone -->
         <div class="ai-key-card">
           <div class="ai-key-head">
-            <span class="ai-key-title"><i class="fas fa-key" aria-hidden="true"></i> Gemini API key</span>
+            <span class="ai-key-title"><i class="fas fa-key" aria-hidden="true"></i> Gemini API key <small>(optional)</small></span>
             <span id="aiKeyStatus" class="ai-key-status" aria-live="polite"></span>
           </div>
-          <p class="hint-text">Powers <strong>AI Match</strong> and <strong>Tone</strong>. Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>. It's stored only in this browser and sent only to Google.</p>
+          <p class="hint-text">When you're signed in, the AI tools work <strong>without a key</strong> (with a small daily limit). For unlimited use, add your own free key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>. It's stored only in this browser and sent only to Google.</p>
           <div class="ai-key-row">
             <input type="password" id="geminiApiKey" class="form-input" autocomplete="off"
-              placeholder="Paste your Gemini API key" aria-label="Gemini API key">
+              placeholder="Optional: paste your own Gemini API key" aria-label="Gemini API key (optional)">
             <button onclick="saveApiKey()" class="btn-icon" title="Save key in this browser">
               <i class="fas fa-save"></i> Save
             </button>

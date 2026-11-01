@@ -75,6 +75,8 @@ function updateAuthUI() {
   const signedIn = document.getElementById('authSignedIn');
   const emailLabel = document.getElementById('authUserEmail');
   if (!signedOut || !signedIn) return;
+  // The AI Tools badge depends on whether the site's free AI is available.
+  if (typeof updateApiKeyStatus === 'function') updateApiKeyStatus();
 
   if (currentUser) {
     signedOut.style.display = 'none';

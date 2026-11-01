@@ -29,7 +29,7 @@ A free, browser-based resume builder with a live preview, 15 Europass-format tem
 - **Grammar check** through the public [LanguageTool](https://languagetool.org) API (no key needed).
 - **Tone analysis** through Google Gemini.
 - **Improve with AI** on any experience or project description: Gemini rewrites it into 2–4 strong bullet points using only the user's facts, shown as a suggestion to accept or dismiss.
-- Both Gemini tools use the user's own free API key, stored only in their browser. Busy or rate-limited requests are retried with exponential backoff and then fall back to a lighter model.
+- **No key needed when signed in.** Gemini requests go through a small server function (`api/gemini.js`) that holds the site's key, checks the Supabase session and applies a per-user daily limit. Users can still add their own free key for unlimited use; it is stored only in their browser. Busy or rate-limited requests are retried with exponential backoff and then fall back to a lighter model.
 - **GitHub import.** Enter a username to fill in name, bio, location and website, and add up to five top non-fork repositories as projects.
 
 ### Accounts and cloud save
@@ -68,11 +68,16 @@ flowchart LR
   U -->|share link| F[/api/shorten/]
   F -->|shorten| G[is.gd]
   U -->|grammar| L[LanguageTool API]
-  U -->|tone, user's own key| GM[Google Gemini API]
+  U -->|AI, signed in| AI[/api/gemini/]
+  AI -->|site key, daily limit| GM[Google Gemini API]
+  U -->|AI, user's own key| GM
   U -->|profile and repos| GH[GitHub API]
 ```
 
-Most of the app runs in the browser. The only server code is `api/shorten.js`, which proxies is.gd to avoid CORS errors and accepts only `http`/`https` URLs, so it cannot be used as an open proxy.
+Most of the app runs in the browser. The server code is two small functions:
+
+- `api/shorten.js` proxies is.gd to avoid CORS errors and accepts only `http`/`https` URLs, so it cannot be used as an open proxy.
+- `api/gemini.js` calls Gemini with the site's key for signed-in users. It verifies the Supabase session, counts each request against a daily limit (`supabase/ai-usage.sql`), and only forwards plain text prompts to two allowed models.
 
 ---
 
@@ -83,7 +88,10 @@ Most of the app runs in the browser. The only server code is `api/shorten.js`, w
 ├── resume.html             The builder (form, preview, modals)
 ├── view.html               Read-only page for shared resume links
 ├── api/
+│   ├── gemini.js           Gemini proxy for signed-in users (site key, daily limit)
 │   └── shorten.js          Serverless URL shortener (is.gd proxy)
+├── supabase/
+│   └── ai-usage.sql        Daily AI usage counter (run once in Supabase)
 ├── assets/
 │   ├── css/main.css        App and template styles
 │   └── js/
@@ -127,13 +135,21 @@ Put your project URL and anon key in `assets/js/supabase-config.js`, then create
 
 Email sign-up uses Supabase's one-time code (OTP) emails, so enable email OTP in the Auth settings.
 
+### Shared AI key (optional)
+
+1. Run `supabase/ai-usage.sql` once in the Supabase SQL Editor (creates the daily usage counter).
+2. In Vercel → Project → Settings → Environment Variables, add `GEMINI_API_KEY` (a key from [aistudio.google.com](https://aistudio.google.com/apikey)) and optionally `AI_DAILY_LIMIT` (default 30), then redeploy.
+
+Without these, the AI tools still work for anyone who adds their own key.
+
 ---
 
 ## Security and privacy
 
 - **XSS protection.** Resume data can arrive from untrusted shared links, so every field is HTML-escaped before rendering. Links are limited to `http`, `https` and `mailto`, and images to `https` or local `data:image` URLs.
 - **No leftover local data.** Resumes are never kept in `localStorage`; signed-out sessions start blank, and data from older versions is purged on load.
-- **Keys stay with the user.** The Gemini API key is stored only in the user's own browser and sent only to Google.
+- **Keys stay secret.** The site's Gemini key exists only as a Vercel environment variable and never reaches the browser. A user's own key is stored only in their browser and sent only to Google.
+- **No contact details sent to AI.** Email and phone number are left out of everything sent to LanguageTool and Gemini.
 - **Shared links are self-contained.** The resume lives in the link itself, not on a server.
 
 ---
