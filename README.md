@@ -14,7 +14,7 @@ A free, browser-based resume builder with a live preview, 15 Europass-format tem
   - *Sidebar:* Aurora, Emerald, Slate, Coral, Ivory
   - *Banner:* Sunrise, Horizon, Blossom, Nordic, Velvet
   - *Timeline:* Pulse, Meridian, Zenith, Canvas, Quartz
-- **Accent color picker** to recolor any template.
+- **Matching accent colours.** Each template sets its own heading, rule and link colour to fit its palette.
 - **Guided sections:** personal info, experience, education, skills, projects and achievements, with a sidebar progress tracker.
 - **Custom sections** such as Certifications, Languages, Volunteering or Publications.
 - **Drag-and-drop ordering** of sections (SortableJS).

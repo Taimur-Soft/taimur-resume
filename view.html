@@ -89,14 +89,13 @@
         if (!data) throw new Error('Invalid data');
 
         // Set up template
-        currentTemplate = data.template || 'modern';
-        currentColor = data.color || '#2a9e77';
+        currentTemplate = data.template || 'aurora';
 
         // Build preview element
         const previewDiv = document.createElement('div');
         previewDiv.id = 'resumePreview';
         previewDiv.className = `resume-preview template-${currentTemplate}`;
-        previewDiv.style.cssText = `--resume-accent: ${currentColor}; max-width: 680px; margin: 0 auto; box-shadow: 0 8px 32px rgba(0,0,0,0.15); border-radius: 4px;`;
+        previewDiv.style.cssText = `max-width: 680px; margin: 0 auto; box-shadow: 0 8px 32px rgba(0,0,0,0.15); border-radius: 4px;`;
         previewDiv.innerHTML = buildResumeHTML(data);
 
         document.getElementById('viewContent').innerHTML = '';

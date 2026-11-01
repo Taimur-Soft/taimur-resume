@@ -227,7 +227,7 @@ async function authSignOut() {
 
   // Reload rather than just flipping the nav UI: this is the one place
   // that guarantees every trace of the account's resume — form fields,
-  // the live preview, in-memory state like currentTemplate/currentColor —
+  // the live preview, in-memory state like currentTemplate —
   // is actually wiped, so the next person on this browser starts from a
   // genuinely blank form instead of still seeing this account's data.
   setTimeout(() => window.location.reload(), 500);

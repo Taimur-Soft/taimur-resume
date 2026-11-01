@@ -9,7 +9,6 @@
 
 // ── STATE ──────────────────────────────────────────────
 let currentTemplate = 'aurora';
-let currentColor = '#2a9e77';
 let customSections = [];
 let sectionOrder = ['experience', 'education', 'skills', 'projects', 'achievements'];
 let activeStep = 'personal';
@@ -140,11 +139,6 @@ function switchTemplate(name) {
   generateCV();
 }
 
-function updateColor(color) {
-  currentColor = color;
-  document.getElementById('resumePreview').style.setProperty('--resume-accent', color);
-  generateCV();
-}
 
 // ── GENERATE CV (LIVE PREVIEW) ─────────────────────────
 // renderCV() does the actual (somewhat expensive) work: rebuilding the
@@ -172,7 +166,6 @@ function renderCV() {
 
   if (empty) empty.style.display = 'none';
 
-  preview.style.setProperty('--resume-accent', currentColor);
   preview.innerHTML = buildResumeHTML(data);
 
   calculateProgress();
@@ -316,7 +309,6 @@ function collectFormData() {
 
   return {
     template: currentTemplate,
-    color: currentColor,
     personal: {
       firstname: get('firstname'),
       middlename: get('middlename'),
@@ -1096,12 +1088,9 @@ function restoreRepeaterSection(section, items, fieldMap) {
 function restoreFromData(data) {
   if (!data) return;
 
-  // Restore template & color
+  // Restore template. Each template sets its own accent colour in CSS,
+  // so a "color" saved by older versions of the app is ignored.
   if (data.template) switchTemplate(data.template);
-  if (data.color) {
-    currentColor = data.color;
-    document.getElementById('colorPicker').value = data.color;
-  }
 
   // Restore personal fields — always set the field, even to empty, so a
   // blank field on the resume being loaded actually clears out whatever
