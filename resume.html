@@ -24,12 +24,6 @@
         <i class="fas fa-folder-open"></i> <span id="activeResumeLabelText"></span>
       </span>
     </div>
-    <div class="nav-progress">
-      <span class="progress-label" id="progressLabel">0% Complete</span>
-      <div class="progress-bar">
-        <div class="progress-fill" id="progressFill"></div>
-      </div>
-    </div>
     <div class="nav-actions">
       <div id="authSignedOut" class="auth-nav-group">
         <span class="demo-mode-hint" title="Typing here is just a live preview — sign in to actually save a resume">
@@ -109,8 +103,11 @@
         </div>
       </div>
       <div class="sidebar-footer">
-        <div style="font-size:11px;color:var(--sidebar-text);text-align:center;margin-bottom:6px">Completion</div>
-        <div class="sidebar-progress" id="sidebarProgress">0%</div>
+        <div class="sidebar-progress-row">
+          <span>Completion</span>
+          <span class="sidebar-progress" id="sidebarProgress">0%</span>
+        </div>
+        <div class="progress-bar" role="presentation"><div class="progress-fill" id="progressFill"></div></div>
       </div>
     </aside>
 

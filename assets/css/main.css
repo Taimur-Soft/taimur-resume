@@ -52,9 +52,7 @@ button { cursor: pointer; border: none; font-family: inherit; }
 }
 .active-resume-label i { font-size: 11px; }
 
-.nav-progress { flex: 1; display: flex; align-items: center; gap: 10px; max-width: 400px; }
-.progress-label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
-.progress-bar { flex: 1; height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+.progress-bar { height: 6px; background: rgba(255,255,255,0.12); border-radius: 99px; overflow: hidden; }
 .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary-fill), var(--accent)); border-radius: 99px; transition: width 0.5s ease; width: 0%; }
 
 .nav-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
@@ -124,7 +122,11 @@ button { cursor: pointer; border: none; font-family: inherit; }
   padding: 20px;
   border-top: 1px solid var(--chrome-border);
 }
-.sidebar-progress { font-size: 20px; font-weight: 700; color: var(--accent); text-align: center; }
+.sidebar-progress-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 8px; font-size: 12px; color: var(--sidebar-text);
+}
+.sidebar-progress { font-size: 18px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
 
 /* ── FORM PANEL ──────────────────────────────────────── */
 .app-form-panel {
@@ -627,7 +629,6 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
   }
   .app-sidebar { display: none; }
   .app-navbar { padding: 0 12px; gap: 8px; }
-  .nav-progress { display: none; }
   .active-resume-label { display: none !important; }
   .nav-actions {
     gap: 6px;
