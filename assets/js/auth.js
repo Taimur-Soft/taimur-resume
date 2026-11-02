@@ -354,10 +354,15 @@ async function authSignIn(email, password) {
   return data;
 }
 
-async function authSignOut() {
-  await supabaseClient.auth.signOut();
+// scope 'global' also ends the sessions on every other device.
+async function authSignOut({ scope = 'local', removeKey = false } = {}) {
+  const { error } = await supabaseClient.auth.signOut({ scope });
+  if (error && scope === 'global') throw error;
   setActiveCloudResumeId(null);
-  showToast('✅ Signed out', 'success');
+  if (removeKey) {
+    try { localStorage.removeItem('geminiApiKey'); } catch (e) {}
+  }
+  showToast(scope === 'global' ? '✅ Signed out on all devices' : '✅ Signed out', 'success');
 
   // Reload rather than just flipping the nav UI: this is the one place
   // that guarantees every trace of the account's resume — form fields,
@@ -367,12 +372,181 @@ async function authSignOut() {
   setTimeout(() => window.location.reload(), 500);
 }
 
-// ── NAV AVATAR ──────────────────────────────────────────
+// ── SIGN-OUT DIALOG ─────────────────────────────────────
+// Saves anything not yet in the cloud first, so signing out right after
+// typing never loses the last edits, and offers to forget the Gemini key
+// (it lives in the browser, not the account).
+function openSignOutDialog() {
+  closeAccountMenu();
+  const modal = document.getElementById('signOutModal');
+  const keyRow = document.getElementById('signOutKeyRow');
+  const status = document.getElementById('signOutStatus');
+  const btn = document.getElementById('signOutConfirmBtn');
+  let hasKey = false;
+  try { hasKey = !!localStorage.getItem('geminiApiKey'); } catch (e) {}
+  keyRow.hidden = !hasKey;
+  document.getElementById('signOutRemoveKey').checked = false;
+  status.className = 'hint-text';
+  status.textContent = hasUnsyncedChanges()
+    ? 'Your latest changes will be saved first.'
+    : 'Your resume is saved to your account. You can sign in again any time.';
+  document.getElementById('signOutTitle').innerHTML = '<i class="fas fa-arrow-right-from-bracket"></i> Sign out?';
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fas fa-arrow-right-from-bracket"></i> Sign out';
+  btn.dataset.force = '';
+  btn.onclick = () => confirmSignOut('local');
+  modal.style.display = 'flex';
+  btn.focus();
+}
+
+function closeSignOutDialog() {
+  document.getElementById('signOutModal').style.display = 'none';
+}
+
+async function confirmSignOut(scope = 'local') {
+  const status = document.getElementById('signOutStatus');
+  const btn = document.getElementById('signOutConfirmBtn');
+  const removeKey = document.getElementById('signOutRemoveKey').checked;
+  const force = btn.dataset.force === '1';
+
+  if (!force && hasUnsyncedChanges()) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving your changes...';
+    clearTimeout(autoSyncTimer);
+    autoSyncTimer = null;
+    await silentSaveToCloud();
+    if (hasUnsyncedChanges()) {
+      // Couldn't save (offline?). Say so and let the user decide.
+      status.className = 'field-error-msg';
+      status.textContent = '⚠️ Your latest changes could not be saved (are you offline?). If you sign out now they will be lost.';
+      btn.disabled = false;
+      btn.dataset.force = '1';
+      btn.innerHTML = '<i class="fas fa-arrow-right-from-bracket"></i> Sign out anyway';
+      return;
+    }
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing out...';
+  try {
+    await authSignOut({ scope, removeKey });
+  } catch (err) {
+    status.className = 'field-error-msg';
+    status.textContent = '❌ ' + (err.message || 'Could not sign out');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-arrow-right-from-bracket"></i> Sign out';
+  }
+}
+
+function signOutEverywhere() {
+  closeAccountModal();
+  openSignOutDialog();
+  document.getElementById('signOutTitle').innerHTML = '<i class="fas fa-laptop"></i> Sign out of all devices?';
+  document.getElementById('signOutStatus').textContent = 'You will be signed out here and on every other phone or computer where you are signed in.';
+  const btn = document.getElementById('signOutConfirmBtn');
+  btn.onclick = () => confirmSignOut('global');
+  btn.innerHTML = '<i class="fas fa-arrow-right-from-bracket"></i> Sign out everywhere';
+}
+
+// ── NAV AVATAR + ACCOUNT MENU ───────────────────────────
+function avatarHTML(url) {
+  return url && /^https:\/\//i.test(url)
+    ? `<img src="${escapeHTML(url)}" alt="">`
+    : '<i class="fas fa-user"></i>';
+}
+
 function updateNavAvatar() {
-  const el = document.getElementById('authUserAvatar');
-  if (!el) return;
   const url = currentUser?.user_metadata?.avatar_url;
-  el.innerHTML = url ? `<img src="${url}" alt="Avatar">` : '<i class="fas fa-user"></i>';
+  ['authUserAvatar', 'accountMenuAvatar'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = avatarHTML(url);
+  });
+  const name = currentUser?.user_metadata?.full_name || '';
+  const nameEl = document.getElementById('accountMenuName');
+  const mailEl = document.getElementById('accountMenuEmail');
+  if (nameEl) nameEl.textContent = name || 'Your account';
+  if (mailEl) mailEl.textContent = currentUser?.email || '';
+}
+
+function updateAccountMenuTheme() {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+    (!document.documentElement.getAttribute('data-theme') && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
+  const label = document.getElementById('accountMenuThemeLabel');
+  const icon = document.getElementById('accountMenuThemeIcon');
+  if (label) label.textContent = dark ? 'Light mode' : 'Dark mode';
+  if (icon) icon.className = dark ? 'fas fa-sun' : 'fas fa-moon';
+}
+
+function toggleAccountMenu() {
+  const panel = document.getElementById('accountMenuPanel');
+  if (panel.hidden) openAccountMenu(); else closeAccountMenu();
+}
+
+function openAccountMenu() {
+  const panel = document.getElementById('accountMenuPanel');
+  const btn = document.getElementById('accountMenuBtn');
+  updateNavAvatar();
+  updateAccountMenuTheme();
+  const meta = document.getElementById('accountMenuAi');
+  if (meta) meta.textContent = siteAIUsageText();
+  panel.hidden = false;
+  btn.setAttribute('aria-expanded', 'true');
+  panel.querySelector('[role="menuitem"]')?.focus();
+  refreshAIUsage().then(() => { if (meta) meta.textContent = siteAIUsageText(); });
+}
+
+function closeAccountMenu() {
+  const panel = document.getElementById('accountMenuPanel');
+  const btn = document.getElementById('accountMenuBtn');
+  if (!panel || panel.hidden) return;
+  panel.hidden = true;
+  btn?.setAttribute('aria-expanded', 'false');
+}
+
+// Click outside or Escape closes the menu; arrow keys move between items.
+document.addEventListener('click', (e) => {
+  if (!e.target.closest?.('#accountMenu')) closeAccountMenu();
+});
+document.addEventListener('keydown', (e) => {
+  const panel = document.getElementById('accountMenuPanel');
+  if (!panel || panel.hidden) return;
+  if (e.key === 'Escape') { closeAccountMenu(); document.getElementById('accountMenuBtn')?.focus(); return; }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const items = [...panel.querySelectorAll('[role="menuitem"]')];
+    const i = items.indexOf(document.activeElement);
+    const next = e.key === 'ArrowDown' ? (i + 1) % items.length : (i - 1 + items.length) % items.length;
+    items[next].focus();
+  }
+});
+
+// ── AI USAGE (shared key) ───────────────────────────────
+let aiUsageInfo = { used: null, limit: null, enabled: null };
+
+async function refreshAIUsage() {
+  if (!currentUser) return aiUsageInfo;
+  try {
+    const [usage, cfg] = await Promise.all([
+      supabaseClient.rpc('get_ai_usage'),
+      aiUsageInfo.limit === null
+        ? fetch('/api/gemini', { method: 'GET' }).then(r => (r.ok ? r.json() : null)).catch(() => null)
+        : Promise.resolve(null)
+    ]);
+    if (!usage.error && typeof usage.data === 'number') aiUsageInfo.used = usage.data;
+    if (cfg) { aiUsageInfo.limit = cfg.limit; aiUsageInfo.enabled = cfg.enabled; }
+  } catch (e) { /* keep what we had */ }
+  // A request made since then is more up to date.
+  if (typeof siteAIUsage !== 'undefined' && siteAIUsage && (aiUsageInfo.used === null || siteAIUsage.used > aiUsageInfo.used)) {
+    aiUsageInfo.used = siteAIUsage.used;
+    aiUsageInfo.limit = siteAIUsage.limit;
+  }
+  return aiUsageInfo;
+}
+
+function siteAIUsageText() {
+  const { used, limit } = aiUsageInfo;
+  if (used === null || !limit) return '';
+  return `${Math.min(used, limit)}/${limit}`;
 }
 
 // ── ACCOUNT SETTINGS MODAL ──────────────────────────────
@@ -383,19 +557,246 @@ function updateNavAvatar() {
 // currently-authenticated user's own account.
 let pendingAvatarFile = null;
 
-function openAccountModal() {
+function openAccountModal(tab = 'profile') {
   if (!currentUser) return;
+  closeAccountMenu();
   pendingAvatarFile = null;
   document.getElementById('accountEmail').textContent = currentUser.email;
   document.getElementById('accountFullName').value = currentUser.user_metadata?.full_name || '';
   document.getElementById('accountPhone').value = currentUser.user_metadata?.phone || '';
-  document.getElementById('accountNewPassword').value = '';
-  document.getElementById('accountConfirmPassword').value = '';
-  const preview = document.getElementById('accountAvatarPreview');
-  const url = currentUser.user_metadata?.avatar_url;
-  preview.innerHTML = url ? `<img src="${url}" alt="Avatar">` : '<i class="fas fa-user"></i>';
+  ['accountCurrentPassword', 'accountNewPassword', 'accountConfirmPassword', 'deleteAccountPassword', 'deleteAccountConfirm']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  updatePasswordStrength();
+  document.getElementById('accountAvatarPreview').innerHTML = avatarHTML(currentUser.user_metadata?.avatar_url);
+
+  const fmt = (iso) => iso ? new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+  document.getElementById('accountFactEmail').textContent =
+    currentUser.email + (currentUser.email_confirmed_at ? ' ✓ verified' : '');
+  document.getElementById('accountFactCreated').textContent = fmt(currentUser.created_at);
+  document.getElementById('accountFactLastSignIn').textContent = fmt(currentUser.last_sign_in_at);
+
   hideAccountMessages();
   document.getElementById('accountModal').style.display = 'flex';
+  showAccountTab(tab);
+}
+
+function showAccountTab(tab) {
+  document.querySelectorAll('#accountModal .account-tabs [role="tab"]').forEach(t => {
+    const on = t.dataset.tab === tab;
+    t.setAttribute('aria-selected', String(on));
+    t.tabIndex = on ? 0 : -1;
+  });
+  document.querySelectorAll('#accountModal .account-panel').forEach(p => {
+    p.hidden = p.id !== `accPanel-${tab}`;
+  });
+  if (tab === 'ai') renderAccountAI();
+}
+
+// Arrow keys move between tabs, like a native tab strip.
+document.addEventListener('keydown', (e) => {
+  if (!e.target.closest?.('#accountModal .account-tabs')) return;
+  if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+  const tabs = [...document.querySelectorAll('#accountModal .account-tabs [role="tab"]')];
+  const i = tabs.indexOf(e.target);
+  const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+  showAccountTab(next.dataset.tab);
+  next.focus();
+});
+
+async function renderAccountAI() {
+  const count = document.getElementById('accountAiCount');
+  const bar = document.getElementById('accountAiBar');
+  const note = document.getElementById('accountAiNote');
+  const keyState = document.getElementById('accountAiKeyState');
+  let ownKey = false;
+  try { ownKey = !!localStorage.getItem('geminiApiKey'); } catch (e) {}
+  keyState.textContent = ownKey
+    ? '✓ Your own key is saved in this browser, so AI here uses it, with no daily limit.'
+    : 'Not set. AI uses the site\'s free key. Add your own free key in AI Tools for unlimited use.';
+
+  count.textContent = '…';
+  const { used, limit, enabled } = await refreshAIUsage();
+  if (enabled === false) {
+    count.textContent = 'Off';
+    bar.style.width = '0';
+    note.textContent = 'The site\'s free AI is not switched on. Add your own key to use the AI tools.';
+    return;
+  }
+  if (used === null || !limit) {
+    count.textContent = '—';
+    bar.style.width = '0';
+    note.textContent = 'Could not load your usage right now.';
+    return;
+  }
+  const shown = Math.min(used, limit);
+  count.textContent = `${shown} / ${limit}`;
+  bar.style.width = `${Math.round((shown / limit) * 100)}%`;
+  bar.dataset.level = shown >= limit ? 'full' : shown / limit >= 0.8 ? 'high' : '';
+  note.textContent = shown >= limit
+    ? 'You have used all of today\'s free requests. They reset at midnight (UTC).'
+    : `${limit - shown} left today. Resets at midnight (UTC).`;
+}
+
+// Shows or hides a password field's text.
+function togglePasswordVisibility(id, btn) {
+  const input = document.getElementById(id);
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  btn.innerHTML = `<i class="fas fa-eye${show ? '-slash' : ''}"></i>`;
+  btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+}
+
+// 0–4 score from length and character variety, with common weak patterns
+// pulled down. Simple on purpose: it guides, the server decides.
+function passwordScore(pw) {
+  if (!pw) return -1;
+  let score = 0;
+  if (pw.length >= 8) score++;
+  if (pw.length >= 12) score++;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
+  if (/\d/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  if (/^(password|qwerty|123456|111111|abc123|letmein)/i.test(pw) || /(.)\1{3,}/.test(pw)) score = Math.min(score, 1);
+  if (pw.length < 8) score = Math.min(score, 1);
+  return Math.min(4, score);
+}
+
+function updatePasswordStrength() {
+  const input = document.getElementById('accountNewPassword');
+  const bar = document.getElementById('passwordMeterBar');
+  const text = document.getElementById('passwordMeterText');
+  if (!input || !bar || !text) return;
+  const s = passwordScore(input.value);
+  const labels = ['Too weak', 'Weak', 'Fair', 'Good', 'Strong'];
+  bar.style.width = s < 0 ? '0' : `${(s + 1) * 20}%`;
+  bar.dataset.level = s < 0 ? '' : String(s);
+  text.textContent = s < 0 ? '' : `${labels[s]}${s < 3 ? ' · use 12+ characters with upper and lower case, numbers and symbols' : ''}`;
+}
+
+// Copies name, email and phone from the account into the resume's empty
+// Personal Info fields.
+function fillResumeFromProfile() {
+  const meta = currentUser?.user_metadata || {};
+  const parts = (meta.full_name || '').trim().split(/\s+/).filter(Boolean);
+  const values = {
+    firstname: parts[0] || '',
+    lastname: parts.length > 1 ? parts.slice(1).join(' ') : '',
+    email: currentUser?.email || '',
+    phoneno: meta.phone || ''
+  };
+  const filled = [];
+  for (const [cls, val] of Object.entries(values)) {
+    const el = document.querySelector('.' + cls);
+    if (el && val && !el.value.trim()) { el.value = val; filled.push(cls === 'phoneno' ? 'phone' : cls.replace('name', ' name')); }
+  }
+  if (filled.length) {
+    generateCV();
+    showToast(`✅ Filled ${filled.join(', ')}`, 'success');
+  } else {
+    showToast('Nothing to fill: those fields already have values, or your profile is empty', 'info');
+  }
+}
+
+// GDPR "right of access": one JSON file with the profile and every resume.
+async function downloadMyData() {
+  const btn = document.getElementById('accountExportBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing...';
+  try {
+    const { data: resumes, error } = await supabaseClient
+      .from('resumes')
+      .select('id, name, data, updated_at')
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+    const meta = currentUser.user_metadata || {};
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      exportedFrom: 'Taimur Resume (taimur-resume.vercel.app)',
+      account: {
+        email: currentUser.email,
+        fullName: meta.full_name || '',
+        phone: meta.phone || '',
+        avatarUrl: meta.avatar_url || '',
+        createdAt: currentUser.created_at,
+        lastSignInAt: currentUser.last_sign_in_at
+      },
+      resumes: resumes || []
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `taimur-resume-my-data-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    showToast(`✅ Downloaded your data (${(resumes || []).length} resume${(resumes || []).length === 1 ? '' : 's'})`, 'success');
+  } catch (err) {
+    showToast('❌ Could not download your data: ' + (err.message || err), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-download"></i> Download my data';
+  }
+}
+
+// GDPR "right to erasure". Asks for the password and a typed DELETE first,
+// removes the profile photo, then deletes the account and all its rows in
+// one database call (supabase/account.sql).
+async function deleteMyAccount() {
+  const errorEl = document.getElementById('deleteAccountError');
+  const btn = document.getElementById('deleteAccountBtn');
+  const password = document.getElementById('deleteAccountPassword').value;
+  const typed = document.getElementById('deleteAccountConfirm').value.trim();
+  const fail = (msg) => { errorEl.textContent = msg; errorEl.style.display = 'block'; };
+  errorEl.style.display = 'none';
+
+  if (!password) return fail('Enter your password to confirm it\'s you.');
+  if (typed !== 'DELETE') return fail('Type DELETE (in capital letters) to confirm.');
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+  try {
+    const { error: authError } = await supabaseClient.auth.signInWithPassword({ email: currentUser.email, password });
+    if (authError) throw new Error('That password is not correct.');
+
+    // Make sure the server side is set up (same SQL file) before touching
+    // anything, so a missing setup can't leave a half-deleted account.
+    const check = await supabaseClient.rpc('get_ai_usage');
+    if (check.error) {
+      throw new Error('Account deletion is not set up on the server yet (supabase/account.sql). Nothing was deleted.');
+    }
+
+    // Stop autosave from re-creating a resume while we delete.
+    clearTimeout(autoSyncTimer);
+    autoSyncTimer = null;
+    resumeContextVersion++;
+
+    // Profile photo: best effort, the account goes either way.
+    try {
+      const { data: files } = await supabaseClient.storage.from('avatars').list(currentUser.id);
+      if (files?.length) await supabaseClient.storage.from('avatars').remove(files.map(f => `${currentUser.id}/${f.name}`));
+    } catch (e) { /* ignore */ }
+
+    const { error } = await supabaseClient.rpc('delete_my_account');
+    if (error) {
+      throw new Error(/function|not find|schema cache/i.test(error.message)
+        ? 'Account deletion is not set up on the server yet (supabase/account.sql). Nothing was deleted.'
+        : error.message);
+    }
+
+    try {
+      localStorage.removeItem(ACTIVE_CLOUD_ID_KEY);
+      localStorage.removeItem('geminiApiKey');
+    } catch (e) {}
+    await supabaseClient.auth.signOut({ scope: 'local' }).catch(() => {});
+    currentUser = null;
+    showToast('✅ Your account and all your data have been deleted', 'success');
+    setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+  } catch (err) {
+    fail('❌ ' + (err.message || 'Could not delete the account'));
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-trash-can"></i> Delete my account permanently';
+  }
 }
 
 function closeAccountModal() {
@@ -478,27 +879,28 @@ async function changeAccountPassword(event) {
   const errorEl = document.getElementById('accountPasswordError');
   const successEl = document.getElementById('accountPasswordSuccess');
   const btn = document.getElementById('accountPasswordSaveBtn');
+  const currentPassword = document.getElementById('accountCurrentPassword').value;
   const newPassword = document.getElementById('accountNewPassword').value;
   const confirmPassword = document.getElementById('accountConfirmPassword').value;
+  const fail = (msg) => { errorEl.textContent = msg; errorEl.style.display = 'block'; };
 
-  if (newPassword.length < 6) {
-    errorEl.textContent = 'Password must be at least 6 characters';
-    errorEl.style.display = 'block';
-    return;
-  }
-  if (newPassword !== confirmPassword) {
-    errorEl.textContent = 'Passwords do not match';
-    errorEl.style.display = 'block';
-    return;
-  }
+  if (!currentPassword) return fail('Enter your current password');
+  if (newPassword.length < 8) return fail('New password must be at least 8 characters');
+  if (passwordScore(newPassword) < 2) return fail('That password is too easy to guess. Add more characters, numbers or symbols.');
+  if (newPassword === currentPassword) return fail('The new password must be different from the current one');
+  if (newPassword !== confirmPassword) return fail('New passwords do not match');
 
   btn.disabled = true;
   btn.textContent = 'Updating...';
   try {
+    // Confirm it's really the account owner (e.g. not someone at an
+    // unlocked computer) before changing the password.
+    const { error: authError } = await supabaseClient.auth.signInWithPassword({ email: currentUser.email, password: currentPassword });
+    if (authError) throw new Error('Your current password is not correct');
     const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
     if (error) throw error;
-    document.getElementById('accountNewPassword').value = '';
-    document.getElementById('accountConfirmPassword').value = '';
+    ['accountCurrentPassword', 'accountNewPassword', 'accountConfirmPassword'].forEach(id => { document.getElementById(id).value = ''; });
+    updatePasswordStrength();
     successEl.textContent = '✅ Password updated';
     successEl.style.display = 'block';
     showToast('✅ Password updated', 'success');
@@ -1006,7 +1408,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       showToast('✅ Account created! Please sign in.', 'success');
     }
   }
-  ['authModal', 'myResumesModal', 'accountModal'].forEach(id => {
+  ['authModal', 'myResumesModal', 'accountModal', 'signOutModal'].forEach(id => {
     const modal = document.getElementById(id);
     if (modal) {
       modal.addEventListener('click', (e) => {

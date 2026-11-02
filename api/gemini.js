@@ -161,6 +161,10 @@ function describeAttempts(log) {
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
+  // The daily limit itself is not secret; the account page shows it.
+  if (req.method === 'GET') {
+    return res.status(200).json({ limit: DAILY_LIMIT, enabled: !!(process.env.GEMINI_API_KEY || '').trim() });
+  }
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });

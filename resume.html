@@ -35,11 +35,29 @@
         <span id="cloudSyncStatus" class="cloud-sync-status"></span>
         <button onclick="saveToCloud()" class="btn-icon btn-icon-only" title="Save now (your resume also saves automatically as you type)" aria-label="Save now"><i class="fas fa-cloud-upload-alt"></i></button>
         <button onclick="openMyResumes()" class="btn-icon" title="All your saved resumes: open, rename, copy, delete or start a new one"><i class="fas fa-folder"></i> My Resumes</button>
-        <button onclick="openAccountModal()" class="auth-account-btn" title="Account Settings">
-          <span id="authUserAvatar" class="auth-user-avatar"><i class="fas fa-user"></i></span>
-          <span id="authUserEmail" class="auth-user-email"></span>
-        </button>
-        <button onclick="authSignOut()" class="btn-icon" title="Sign Out"><i class="fas fa-sign-out-alt"></i></button>
+        <div class="account-menu" id="accountMenu">
+          <button id="accountMenuBtn" class="auth-account-btn" onclick="toggleAccountMenu()" aria-haspopup="menu" aria-expanded="false" aria-controls="accountMenuPanel" title="Your account">
+            <span id="authUserAvatar" class="auth-user-avatar"><i class="fas fa-user"></i></span>
+            <span id="authUserEmail" class="auth-user-email"></span>
+            <i class="fas fa-chevron-down account-menu-caret" aria-hidden="true"></i>
+          </button>
+          <div id="accountMenuPanel" class="account-menu-panel" role="menu" hidden>
+            <div class="account-menu-head">
+              <span id="accountMenuAvatar" class="auth-user-avatar account-menu-avatar"><i class="fas fa-user"></i></span>
+              <div class="account-menu-who">
+                <strong id="accountMenuName"></strong>
+                <span id="accountMenuEmail"></span>
+              </div>
+            </div>
+            <button type="button" role="menuitem" onclick="openAccountModal('profile')"><i class="fas fa-user-gear"></i> Account settings</button>
+            <button type="button" role="menuitem" onclick="closeAccountMenu(); openMyResumes()"><i class="fas fa-folder"></i> My resumes</button>
+            <button type="button" role="menuitem" onclick="openAccountModal('ai')"><i class="fas fa-wand-magic-sparkles"></i> AI usage <span id="accountMenuAi" class="account-menu-meta"></span></button>
+            <button type="button" role="menuitem" onclick="openAccountModal('privacy')"><i class="fas fa-shield-halved"></i> Privacy &amp; data</button>
+            <button type="button" role="menuitem" onclick="toggleTheme(); updateAccountMenuTheme()"><i id="accountMenuThemeIcon" class="fas fa-moon"></i> <span id="accountMenuThemeLabel">Dark mode</span></button>
+            <div class="account-menu-sep" role="separator"></div>
+            <button type="button" role="menuitem" class="account-menu-danger" onclick="openSignOutDialog()"><i class="fas fa-arrow-right-from-bracket"></i> Sign out</button>
+          </div>
+        </div>
       </div>
       <button onclick="importJSON()" class="btn-icon" title="Import from JSON file">
         <i class="fas fa-upload"></i> Import
@@ -557,10 +575,19 @@
 
   <!-- Account Settings Modal -->
   <div id="accountModal" class="share-modal" style="display:none">
-    <div class="share-modal-content" style="max-width:440px">
-      <button onclick="closeAccountModal()" class="btn-close">×</button>
-      <h4><i class="fas fa-user-gear"></i> Account Settings</h4>
+    <div class="share-modal-content account-modal-content" role="dialog" aria-modal="true" aria-labelledby="accountModalTitle">
+      <button onclick="closeAccountModal()" class="btn-close" aria-label="Close">×</button>
+      <h4 id="accountModalTitle"><i class="fas fa-user-gear"></i> Account Settings</h4>
 
+      <div class="account-tabs" role="tablist" aria-label="Account sections">
+        <button type="button" role="tab" id="accTab-profile" aria-controls="accPanel-profile" data-tab="profile" onclick="showAccountTab('profile')"><i class="fas fa-user"></i> Profile</button>
+        <button type="button" role="tab" id="accTab-security" aria-controls="accPanel-security" data-tab="security" onclick="showAccountTab('security')"><i class="fas fa-lock"></i> Security</button>
+        <button type="button" role="tab" id="accTab-privacy" aria-controls="accPanel-privacy" data-tab="privacy" onclick="showAccountTab('privacy')"><i class="fas fa-shield-halved"></i> Privacy</button>
+        <button type="button" role="tab" id="accTab-ai" aria-controls="accPanel-ai" data-tab="ai" onclick="showAccountTab('ai')"><i class="fas fa-wand-magic-sparkles"></i> AI</button>
+      </div>
+
+      <!-- Profile -->
+      <section id="accPanel-profile" class="account-panel" role="tabpanel" aria-labelledby="accTab-profile">
       <form onsubmit="saveAccountProfile(event)">
         <div class="account-avatar-row">
           <span id="accountAvatarPreview" class="account-avatar-preview"><i class="fas fa-user"></i></span>
@@ -589,23 +616,113 @@
         <div id="accountProfileSuccess" class="account-success-msg" style="display:none;margin-bottom:12px"></div>
         <button type="submit" id="accountProfileSaveBtn" class="btn-primary" style="width:100%;justify-content:center">Save Profile</button>
       </form>
+      <button type="button" class="btn-icon account-fill-btn" onclick="fillResumeFromProfile()">
+        <i class="fas fa-file-import"></i> Fill my resume's Personal Info from this profile
+      </button>
+      <p class="hint-text">Only fills fields that are still empty.</p>
+      </section>
 
-      <hr class="account-divider">
+      <!-- Security -->
+      <section id="accPanel-security" class="account-panel" role="tabpanel" aria-labelledby="accTab-security" hidden>
+        <dl class="account-facts">
+          <div><dt>Email</dt><dd id="accountFactEmail"></dd></div>
+          <div><dt>Account created</dt><dd id="accountFactCreated"></dd></div>
+          <div><dt>Last sign-in</dt><dd id="accountFactLastSignIn"></dd></div>
+        </dl>
 
-      <h4 style="font-size:14px"><i class="fas fa-lock"></i> Change Password</h4>
-      <form onsubmit="changeAccountPassword(event)">
-        <div class="form-elem" style="margin:12px 0">
-          <label>New Password</label>
-          <input type="password" id="accountNewPassword" class="form-input" minlength="6" placeholder="At least 6 characters">
+        <h5 class="account-subhead"><i class="fas fa-key"></i> Change password</h5>
+        <form onsubmit="changeAccountPassword(event)">
+          <div class="form-elem" style="margin:10px 0">
+            <label for="accountCurrentPassword">Current password</label>
+            <div class="password-field">
+              <input type="password" id="accountCurrentPassword" class="form-input" autocomplete="current-password" placeholder="Your current password">
+              <button type="button" class="password-eye" onclick="togglePasswordVisibility('accountCurrentPassword', this)" aria-label="Show password"><i class="fas fa-eye"></i></button>
+            </div>
+          </div>
+          <div class="form-elem" style="margin-bottom:10px">
+            <label for="accountNewPassword">New password</label>
+            <div class="password-field">
+              <input type="password" id="accountNewPassword" class="form-input" minlength="8" autocomplete="new-password" placeholder="At least 8 characters" oninput="updatePasswordStrength()">
+              <button type="button" class="password-eye" onclick="togglePasswordVisibility('accountNewPassword', this)" aria-label="Show password"><i class="fas fa-eye"></i></button>
+            </div>
+            <div class="password-meter" aria-hidden="true"><span id="passwordMeterBar"></span></div>
+            <div id="passwordMeterText" class="password-meter-text" aria-live="polite"></div>
+          </div>
+          <div class="form-elem" style="margin-bottom:14px">
+            <label for="accountConfirmPassword">Confirm new password</label>
+            <input type="password" id="accountConfirmPassword" class="form-input" minlength="8" autocomplete="new-password" placeholder="Repeat new password">
+          </div>
+          <div id="accountPasswordError" class="field-error-msg" style="display:none;margin-bottom:12px"></div>
+          <div id="accountPasswordSuccess" class="account-success-msg" style="display:none;margin-bottom:12px"></div>
+          <button type="submit" id="accountPasswordSaveBtn" class="btn-primary" style="width:100%;justify-content:center">Update Password</button>
+        </form>
+
+        <h5 class="account-subhead"><i class="fas fa-laptop"></i> Devices</h5>
+        <p class="hint-text">Signed in on a phone or another computer and can't reach it? Sign out everywhere at once.</p>
+        <button type="button" class="btn-icon account-wide-btn" onclick="signOutEverywhere()"><i class="fas fa-right-from-bracket"></i> Sign out of all devices</button>
+      </section>
+
+      <!-- Privacy & data -->
+      <section id="accPanel-privacy" class="account-panel" role="tabpanel" aria-labelledby="accTab-privacy" hidden>
+        <p class="hint-text account-privacy-intro">Under the EU General Data Protection Regulation (GDPR) you can get a copy of your data and have it deleted at any time.</p>
+        <ul class="account-store-list">
+          <li><i class="fas fa-user"></i> Your email, name, phone and profile photo</li>
+          <li><i class="fas fa-file-lines"></i> Your saved resumes</li>
+          <li><i class="fas fa-chart-simple"></i> How many AI requests you made each day (kept for a week)</li>
+        </ul>
+
+        <h5 class="account-subhead"><i class="fas fa-download"></i> Download my data</h5>
+        <p class="hint-text">One JSON file with your profile and every saved resume.</p>
+        <button type="button" id="accountExportBtn" class="btn-icon account-wide-btn" onclick="downloadMyData()"><i class="fas fa-download"></i> Download my data</button>
+
+        <div class="account-danger-zone">
+          <h5 class="account-subhead"><i class="fas fa-triangle-exclamation"></i> Delete my account</h5>
+          <p class="hint-text">Permanently deletes your account, all saved resumes and your photo. This cannot be undone. Download your data first if you want to keep it.</p>
+          <div class="form-elem" style="margin:10px 0">
+            <label for="deleteAccountPassword">Your password</label>
+            <input type="password" id="deleteAccountPassword" class="form-input" autocomplete="current-password" placeholder="Confirm it's you">
+          </div>
+          <div class="form-elem" style="margin-bottom:12px">
+            <label for="deleteAccountConfirm">Type <strong>DELETE</strong> to confirm</label>
+            <input type="text" id="deleteAccountConfirm" class="form-input" autocomplete="off" placeholder="DELETE">
+          </div>
+          <div id="deleteAccountError" class="field-error-msg" style="display:none;margin-bottom:12px"></div>
+          <button type="button" id="deleteAccountBtn" class="btn-danger account-wide-btn" onclick="deleteMyAccount()"><i class="fas fa-trash-can"></i> Delete my account permanently</button>
         </div>
-        <div class="form-elem" style="margin-bottom:16px">
-          <label>Confirm New Password</label>
-          <input type="password" id="accountConfirmPassword" class="form-input" minlength="6" placeholder="Repeat new password">
+      </section>
+
+      <!-- AI -->
+      <section id="accPanel-ai" class="account-panel" role="tabpanel" aria-labelledby="accTab-ai" hidden>
+        <div class="account-ai-usage">
+          <div class="account-ai-usage-top">
+            <span>Free AI requests today</span>
+            <strong id="accountAiCount">…</strong>
+          </div>
+          <div class="password-meter account-ai-meter" aria-hidden="true"><span id="accountAiBar"></span></div>
+          <p id="accountAiNote" class="hint-text"></p>
         </div>
-        <div id="accountPasswordError" class="field-error-msg" style="display:none;margin-bottom:12px"></div>
-        <div id="accountPasswordSuccess" class="account-success-msg" style="display:none;margin-bottom:12px"></div>
-        <button type="submit" id="accountPasswordSaveBtn" class="btn-icon" style="width:100%;justify-content:center">Update Password</button>
-      </form>
+        <h5 class="account-subhead"><i class="fas fa-key"></i> Your own Gemini key</h5>
+        <p id="accountAiKeyState" class="hint-text"></p>
+        <button type="button" class="btn-icon account-wide-btn" onclick="closeAccountModal(); if (typeof scrollToSection === 'function') scrollToSection('aitools');"><i class="fas fa-robot"></i> Open AI Tools</button>
+      </section>
+    </div>
+  </div>
+
+  <!-- Sign-out dialog -->
+  <div id="signOutModal" class="share-modal" style="display:none">
+    <div class="share-modal-content signout-modal-content" role="dialog" aria-modal="true" aria-labelledby="signOutTitle">
+      <button onclick="closeSignOutDialog()" class="btn-close" aria-label="Close">×</button>
+      <h4 id="signOutTitle"><i class="fas fa-arrow-right-from-bracket"></i> Sign out?</h4>
+      <p id="signOutStatus" class="hint-text">Your resume is saved to your account. You can sign in again any time.</p>
+      <label id="signOutKeyRow" class="signout-check" hidden>
+        <input type="checkbox" id="signOutRemoveKey">
+        <span>Also remove my Gemini API key from this browser <small>(recommended on a shared computer)</small></span>
+      </label>
+      <div class="signout-actions">
+        <button type="button" class="btn-icon" onclick="closeSignOutDialog()">Cancel</button>
+        <button type="button" id="signOutConfirmBtn" class="btn-danger"><i class="fas fa-arrow-right-from-bracket"></i> Sign out</button>
+      </div>
+      <button type="button" class="signout-everywhere-link" onclick="confirmSignOut('global')">Sign out of all devices instead</button>
     </div>
   </div>
 

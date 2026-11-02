@@ -36,7 +36,8 @@ A free, browser-based resume builder with a live preview, 15 Europass-format tem
 - **Email sign-up with a one-time code**, then a password (Supabase Auth).
 - **Automatic cloud sync** while signed in, plus a manual *Save to Cloud* button.
 - **My Resumes:** keep several resumes, then rename, duplicate, load or delete them.
-- **Account settings:** display name, phone, profile photo and password change.
+- **Account menu and settings:** a navbar menu (settings, resumes, AI usage, theme, sign out) and tabbed settings: Profile (photo, name, phone, fill the resume from the profile), Security (password change that checks the current password, strength meter, sign out of all devices), Privacy (GDPR data download and account deletion) and AI (today's usage).
+- **Safe sign-out:** unsaved edits are saved first, with an option to remove the Gemini key from a shared computer.
 - **Demo mode** for signed-out visitors. Nothing is stored, so no data is left behind on shared computers.
 
 ### Export and sharing
@@ -91,7 +92,8 @@ Most of the app runs in the browser. The server code is two small functions:
 │   ├── gemini.js           Gemini proxy for signed-in users (site key, daily limit)
 │   └── shorten.js          Serverless URL shortener (is.gd proxy)
 ├── supabase/
-│   └── ai-usage.sql        Daily AI usage counter (run once in Supabase)
+│   ├── ai-usage.sql        Daily AI usage counter (run once in Supabase)
+│   └── account.sql         AI usage lookup and "delete my account" (run once)
 ├── assets/
 │   ├── css/main.css        App and template styles
 │   └── js/
@@ -141,6 +143,10 @@ Email sign-up uses Supabase's one-time code (OTP) emails, so enable email OTP in
 2. In Vercel → Project → Settings → Environment Variables, add `GEMINI_API_KEY` (a key from [aistudio.google.com](https://aistudio.google.com/apikey)) and optionally `AI_DAILY_LIMIT` (default 30), then redeploy.
 
 Without these, the AI tools still work for anyone who adds their own key.
+
+### Account page (optional)
+
+Run `supabase/account.sql` once in the SQL Editor (after `ai-usage.sql`). It adds "AI usage today" and the GDPR "Delete my account" option to Account Settings.
 
 ---
 
