@@ -672,8 +672,16 @@
         </ul>
 
         <h5 class="account-subhead"><i class="fas fa-download"></i> Download my data</h5>
-        <p class="hint-text">One JSON file with your profile and every saved resume.</p>
-        <button type="button" id="accountExportBtn" class="btn-icon account-wide-btn" onclick="downloadMyData()"><i class="fas fa-download"></i> Download my data</button>
+        <div class="account-export-grid">
+          <div class="account-export-option">
+            <button type="button" id="accountReadableBtn" class="btn-icon account-wide-btn" onclick="downloadReadableCopy()"><i class="fas fa-file-lines"></i> Download readable copy (HTML)</button>
+            <p class="hint-text">A page you can open in any browser, read or print.</p>
+          </div>
+          <div class="account-export-option">
+            <button type="button" id="accountExportBtn" class="btn-icon account-wide-btn" onclick="downloadMyData()"><i class="fas fa-download"></i> Download backup (JSON)</button>
+            <p class="hint-text">To restore later: click <strong>Import</strong> in the builder and choose this file. Also works with other apps.</p>
+          </div>
+        </div>
 
         <div class="account-danger-zone">
           <h5 class="account-subhead"><i class="fas fa-triangle-exclamation"></i> Delete my account</h5>
@@ -705,6 +713,17 @@
         <p id="accountAiKeyState" class="hint-text"></p>
         <button type="button" class="btn-icon account-wide-btn" onclick="closeAccountModal(); if (typeof scrollToSection === 'function') scrollToSection('aitools');"><i class="fas fa-robot"></i> Open AI Tools</button>
       </section>
+    </div>
+  </div>
+
+  <!-- Import: choose resumes from a backup file -->
+  <div id="importPickModal" class="share-modal" style="display:none">
+    <div class="share-modal-content import-pick-content" role="dialog" aria-modal="true" aria-labelledby="importPickTitle">
+      <button onclick="closeImportPicker()" class="btn-close" aria-label="Close">×</button>
+      <h4 id="importPickTitle"><i class="fas fa-box-archive"></i> Restore from backup</h4>
+      <p id="importPickNote" class="hint-text"></p>
+      <div id="importPickList" class="import-pick-list"></div>
+      <button type="button" id="importAllBtn" class="btn-primary account-wide-btn" onclick="restoreAllFromBackup()" hidden></button>
     </div>
   </div>
 

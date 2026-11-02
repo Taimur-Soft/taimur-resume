@@ -173,6 +173,9 @@ async function silentSaveToCloud() {
   autoSyncTimer = null;
   clearTimeout(syncRetryTimer);
   if (!currentUser || syncState === 'loadfail') return;
+  // An import is creating this resume's row right now; saving here too
+  // would create a second copy.
+  if (importInProgress) { autoSyncToCloud(); return; }
 
   // Lock in which resume this save is FOR, before anything async happens.
   const myVersion = resumeContextVersion;
@@ -697,45 +700,293 @@ function fillResumeFromProfile() {
   }
 }
 
-// GDPR "right of access": one JSON file with the profile and every resume.
-async function downloadMyData() {
-  const btn = document.getElementById('accountExportBtn');
+// Everything the account holds, as one object (used by both downloads).
+async function collectMyData() {
+  const { data: resumes, error } = await supabaseClient
+    .from('resumes')
+    .select('id, name, data, updated_at')
+    .order('updated_at', { ascending: false });
+  if (error) throw error;
+  const meta = currentUser.user_metadata || {};
+  return {
+    exportedAt: new Date().toISOString(),
+    exportedFrom: 'Taimur Resume (taimur-resume.vercel.app)',
+    format: 'taimur-resume-account-export/1',
+    howToRestore: 'In the resume builder, click Import and choose this file.',
+    account: {
+      email: currentUser.email,
+      fullName: meta.full_name || '',
+      phone: meta.phone || '',
+      avatarUrl: meta.avatar_url || '',
+      createdAt: currentUser.created_at,
+      lastSignInAt: currentUser.last_sign_in_at
+    },
+    resumes: resumes || []
+  };
+}
+
+function saveFile(content, type, filename) {
+  const blob = new Blob([content], { type });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+async function runExport(btnId, idleHTML, makeFile) {
+  const btn = document.getElementById(btnId);
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing...';
   try {
-    const { data: resumes, error } = await supabaseClient
-      .from('resumes')
-      .select('id, name, data, updated_at')
-      .order('updated_at', { ascending: false });
-    if (error) throw error;
-    const meta = currentUser.user_metadata || {};
-    const exportData = {
-      exportedAt: new Date().toISOString(),
-      exportedFrom: 'Taimur Resume (taimur-resume.vercel.app)',
-      account: {
-        email: currentUser.email,
-        fullName: meta.full_name || '',
-        phone: meta.phone || '',
-        avatarUrl: meta.avatar_url || '',
-        createdAt: currentUser.created_at,
-        lastSignInAt: currentUser.last_sign_in_at
-      },
-      resumes: resumes || []
-    };
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `taimur-resume-my-data-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    showToast(`✅ Downloaded your data (${(resumes || []).length} resume${(resumes || []).length === 1 ? '' : 's'})`, 'success');
+    const exportData = await collectMyData();
+    makeFile(exportData);
+    const n = exportData.resumes.length;
+    showToast(`✅ Downloaded your data (${n} resume${n === 1 ? '' : 's'})`, 'success');
   } catch (err) {
     showToast('❌ Could not download your data: ' + (err.message || err), 'error');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-download"></i> Download my data';
+    btn.innerHTML = idleHTML;
+  }
+}
+
+// GDPR "right of access" / portability: one JSON file with the profile and
+// every resume. The Import button can read it back (see below).
+function downloadMyData() {
+  return runExport('accountExportBtn', '<i class="fas fa-download"></i> Download backup (JSON)', (d) =>
+    saveFile(JSON.stringify(d, null, 2), 'application/json', `taimur-resume-my-data-${d.exportedAt.slice(0, 10)}.json`));
+}
+
+// The same data as a web page anyone can open and read.
+function downloadReadableCopy() {
+  return runExport('accountReadableBtn', '<i class="fas fa-file-lines"></i> Download readable copy (HTML)', (d) =>
+    saveFile(buildReadableExport(d), 'text/html', `taimur-resume-my-data-${d.exportedAt.slice(0, 10)}.html`));
+}
+
+function buildReadableExport(d) {
+  const e = escapeHTML;
+  const nl = (s) => e(s).replace(/\n/g, '<br>');
+  const date = (iso) => iso ? new Date(iso).toLocaleString([], { dateStyle: 'long', timeStyle: 'short' }) : '—';
+  const month = (v) => /^\d{4}-\d{2}$/.test(v || '') ? new Date(v + '-01').toLocaleDateString([], { month: 'short', year: 'numeric' }) : e(v || '');
+  const range = (a, b, current) => [month(a), current ? 'Present' : month(b)].filter(Boolean).join(' – ');
+  const section = (title, body) => body ? `<h3>${title}</h3>${body}` : '';
+  const list = (items, fn) => (Array.isArray(items) ? items.filter(Boolean).map(fn).filter(Boolean).join('') : '');
+
+  const resumeHTML = (r) => {
+    const d0 = r.data || {};
+    const p = d0.personal || {};
+    const name = [p.firstname, p.middlename, p.lastname].filter(Boolean).join(' ');
+    const photo = /^(data:image\/(png|jpe?g|webp|gif);|https:\/\/)/i.test(p.image || '') ? `<img class="photo" src="${e(p.image)}" alt="">` : '';
+    const contact = [p.email, p.phoneno, p.address, p.website].filter(Boolean).map(e).join(' · ');
+    const exp = list(d0.experiences, x => (x.title || x.organization) ? `<div class="item"><strong>${e(x.title)}</strong>${x.organization ? ` · ${e(x.organization)}` : ''}<div class="meta">${[e(x.location), range(x.startDate, x.endDate, x.current)].filter(Boolean).join(' · ')}</div>${x.description ? `<p>${nl(x.description)}</p>` : ''}</div>` : '');
+    const edu = list(d0.educations, x => (x.degree || x.school) ? `<div class="item"><strong>${e(x.degree)}</strong>${x.school ? ` · ${e(x.school)}` : ''}<div class="meta">${[e(x.city), range(x.startDate, x.endDate)].filter(Boolean).join(' · ')}</div>${x.description ? `<p>${nl(x.description)}</p>` : ''}</div>` : '');
+    const skills = (Array.isArray(d0.skills) ? d0.skills : []).map(s => e(s.skill)).filter(Boolean).join(', ');
+    const proj = list(d0.projects, x => x.title ? `<div class="item"><strong>${e(x.title)}</strong>${x.link ? `<div class="meta">${e(x.link)}</div>` : ''}${x.description ? `<p>${nl(x.description)}</p>` : ''}</div>` : '');
+    const ach = list(d0.achievements, x => x.title ? `<div class="item"><strong>${e(x.title)}</strong>${x.description ? `<p>${nl(x.description)}</p>` : ''}</div>` : '');
+    const langs = list(d0.languages, l => l.language ? `<div class="item"><strong>${e(l.language)}</strong> <span class="meta">${l.mother ? 'Mother tongue' : CEFR_SKILLS.map(s => l[s.key] ? `${s.label} ${e(l[s.key])}` : '').filter(Boolean).join(' · ')}</span></div>` : '');
+    const custom = list(d0.customSections, s => {
+      const body = list(s.items, i => (i.title || i.description) ? `<div class="item"><strong>${e(i.title)}</strong>${i.description ? `<p>${nl(i.description)}</p>` : ''}</div>` : '');
+      return body ? section(e(s.name || 'Section'), body) : '';
+    });
+    return `<article>
+      <header class="resume-head">${photo}<div><h2>${e(r.name || name || 'Untitled Resume')}</h2>
+        <div class="meta">Last saved ${date(r.updated_at)}</div></div></header>
+      ${name ? `<p class="who"><strong>${e(name)}</strong>${p.designation ? ` — ${e(p.designation)}` : ''}</p>` : ''}
+      ${contact ? `<p class="meta">${contact}</p>` : ''}
+      ${section('Summary', p.summary ? `<p>${nl(p.summary)}</p>` : '')}
+      ${section('Experience', exp)}${section('Education', edu)}
+      ${section('Skills', skills ? `<p>${skills}</p>` : '')}
+      ${section('Projects', proj)}${section('Achievements', ach)}${section('Languages', langs)}${custom}
+    </article>`;
+  };
+
+  const a = d.account || {};
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My data — Taimur Resume</title>
+<style>
+  :root { color-scheme: light; }
+  body { font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #1a2233; background: #f4f6fb; margin: 0; padding: 24px 16px; }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 0 0 4px; color: #0b1f4d; }
+  .intro { color: #5b6477; margin: 0 0 20px; }
+  section.card, article { background: #fff; border: 1px solid #dde3ef; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  table { border-collapse: collapse; width: 100%; }
+  td { padding: 6px 0; border-bottom: 1px solid #eef1f7; vertical-align: top; }
+  td:first-child { color: #5b6477; width: 40%; }
+  h2 { font-size: 19px; margin: 0; color: #003399; }
+  h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: #003399; margin: 18px 0 6px; border-bottom: 1px solid #eef1f7; padding-bottom: 4px; }
+  .resume-head { display: flex; gap: 14px; align-items: center; }
+  .photo { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; }
+  .meta { color: #5b6477; font-size: 13px; }
+  .item { margin: 8px 0; }
+  .item p, article p { margin: 4px 0 0; }
+  .who { margin: 12px 0 2px; }
+  footer { color: #5b6477; font-size: 12px; text-align: center; margin-top: 24px; }
+  @media print { body { background: #fff; } section.card, article { break-inside: avoid; border-color: #ccc; } }
+</style></head>
+<body><main>
+  <h1>My data</h1>
+  <p class="intro">Everything Taimur Resume stores for your account, exported on ${date(d.exportedAt)}.</p>
+  <section class="card">
+    <h2>Account</h2>
+    <table>
+      <tr><td>Email</td><td>${e(a.email)}</td></tr>
+      <tr><td>Name</td><td>${e(a.fullName) || '—'}</td></tr>
+      <tr><td>Phone</td><td>${e(a.phone) || '—'}</td></tr>
+      <tr><td>Account created</td><td>${date(a.createdAt)}</td></tr>
+      <tr><td>Last sign-in</td><td>${date(a.lastSignInAt)}</td></tr>
+      <tr><td>Saved resumes</td><td>${(d.resumes || []).length}</td></tr>
+    </table>
+  </section>
+  ${(d.resumes || []).map(resumeHTML).join('\n')}
+  <footer>To restore these resumes, download the backup (JSON) from Account Settings → Privacy and choose it with Import in the resume builder.</footer>
+</main></body></html>`;
+}
+
+// ── IMPORT ──────────────────────────────────────────────
+// The Import button accepts two kinds of file:
+//   - one resume (from the Export button), and
+//   - the full account backup (Account Settings → Privacy → Download backup).
+// When signed in, an imported resume becomes a NEW saved resume, so it
+// never overwrites the one that's open.
+let importInProgress = false;
+let importCandidates = [];
+
+function isResumeData(d) {
+  return !!d && typeof d === 'object' && !Array.isArray(d) && !!d.personal && typeof d.personal === 'object';
+}
+
+function handleImportedJSON(obj) {
+  if (obj && Array.isArray(obj.resumes)) {
+    const list = obj.resumes.filter(r => r && isResumeData(r.data)).slice(0, 100);
+    if (!list.length) {
+      showToast('❌ This backup has no resumes in it', 'error');
+      return;
+    }
+    return openImportPicker(list);
+  }
+  if (isResumeData(obj)) return openImportedResume(obj);
+  showToast('❌ This file is not a Taimur Resume file. Use a file from Export, or the backup from Account Settings → Privacy.', 'error');
+}
+
+function openImportPicker(list) {
+  importCandidates = list;
+  const modal = document.getElementById('importPickModal');
+  const listEl = document.getElementById('importPickList');
+  const allBtn = document.getElementById('importAllBtn');
+  const note = document.getElementById('importPickNote');
+  listEl.innerHTML = list.map((r, i) => {
+    const p = r.data.personal || {};
+    const who = [p.firstname, p.lastname].filter(Boolean).join(' ');
+    const when = r.updated_at ? new Date(r.updated_at).toLocaleDateString([], { dateStyle: 'medium' }) : '';
+    return `<div class="my-resume-item">
+      <div class="my-resume-info">
+        <strong>${escapeHTML(r.name || who || 'Untitled Resume')}</strong>
+        <span>${escapeHTML([who && who !== r.name ? who : '', p.designation, when ? 'saved ' + when : ''].filter(Boolean).join(' · '))}</span>
+      </div>
+      <div class="my-resume-actions">
+        <button type="button" class="btn-icon" onclick="importOneFromBackup(${i})"><i class="fas fa-folder-open"></i> Open</button>
+      </div>
+    </div>`;
+  }).join('');
+  allBtn.hidden = !currentUser;
+  allBtn.innerHTML = `<i class="fas fa-cloud-arrow-up"></i> Restore all ${list.length} to my account`;
+  allBtn.disabled = false;
+  note.textContent = currentUser
+    ? 'Opening one adds it to your account as a new resume. Your current resumes are not changed.'
+    : 'Sign in to save them to your account. Without signing in, you can open one to view and edit it here.';
+  modal.style.display = 'flex';
+}
+
+function closeImportPicker() {
+  document.getElementById('importPickModal').style.display = 'none';
+}
+
+function importOneFromBackup(i) {
+  const r = importCandidates[i];
+  if (!r) return;
+  closeImportPicker();
+  openImportedResume(r.data, r.name);
+}
+
+// Puts a resume from a file on screen. Signed in: first saves and leaves
+// the resume that was open, then saves this one as a new resume.
+async function openImportedResume(data, name) {
+  if (!currentUser) {
+    restoreFromData(data);
+    showToast('✅ Resume imported', 'success');
+    return;
+  }
+
+  importInProgress = true;
+  try {
+    if (currentCloudResumeId && hasUnsyncedChanges()) {
+      clearTimeout(autoSyncTimer);
+      autoSyncTimer = null;
+      importInProgress = false;
+      await silentSaveToCloud();
+      importInProgress = true;
+    }
+    clearTimeout(autoSyncTimer);
+    autoSyncTimer = null;
+    resumeContextVersion++;
+    setActiveCloudResumeId(null);
+    setActiveCloudResumeName(null);
+    lastSyncedJSON = null;
+
+    restoreFromData(data);
+    const clean = collectFormData();
+    const p = clean.personal || {};
+    const resumeName = String(name || [p.firstname, p.lastname].filter(Boolean).join(' ') || 'Imported Resume').slice(0, 100);
+    setCloudSyncStatus('syncing');
+    const { data: row, error } = await supabaseClient
+      .from('resumes')
+      .insert({ user_id: currentUser.id, name: resumeName, data: clean })
+      .select()
+      .single();
+    if (error) throw error;
+    setActiveCloudResumeId(row.id);
+    setActiveCloudResumeName(row.name || resumeName);
+    importInProgress = false;
+    markSynced(JSON.stringify(clean));
+    showToast(`✅ Imported "${resumeName}" as a new resume in your account`, 'success');
+  } catch (err) {
+    importInProgress = false;
+    // Still detached from the old resume, so the next autosave creates a
+    // new one instead of overwriting anything.
+    setCloudSyncStatus('error', err.message);
+    scheduleSyncRetry();
+    showToast('⚠️ Imported here, but could not save it to your account yet: ' + (err.message || err), 'error');
+  }
+}
+
+async function restoreAllFromBackup() {
+  if (!currentUser || !importCandidates.length) return;
+  const btn = document.getElementById('importAllBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Restoring...';
+  try {
+    const { data: existing } = await supabaseClient.from('resumes').select('name').order('updated_at', { ascending: false });
+    const taken = new Set((existing || []).map(r => (r.name || '').toLowerCase()));
+    const rows = importCandidates.map(r => {
+      let name = String(r.name || 'Restored Resume').slice(0, 90);
+      if (taken.has(name.toLowerCase())) name += ' (restored)';
+      taken.add(name.toLowerCase());
+      return { user_id: currentUser.id, name, data: r.data };
+    });
+    const { error } = await supabaseClient.from('resumes').insert(rows);
+    if (error) throw error;
+    closeImportPicker();
+    showToast(`✅ Restored ${rows.length} resume${rows.length === 1 ? '' : 's'} to your account. Open them from My Resumes.`, 'success');
+    openMyResumes();
+  } catch (err) {
+    showToast('❌ Could not restore: ' + (err.message || err), 'error');
+    btn.disabled = false;
+    btn.innerHTML = `<i class="fas fa-cloud-arrow-up"></i> Restore all ${importCandidates.length} to my account`;
   }
 }
 
@@ -1408,7 +1659,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       showToast('✅ Account created! Please sign in.', 'success');
     }
   }
-  ['authModal', 'myResumesModal', 'accountModal', 'signOutModal'].forEach(id => {
+  ['authModal', 'myResumesModal', 'accountModal', 'signOutModal', 'importPickModal'].forEach(id => {
     const modal = document.getElementById(id);
     if (modal) {
       modal.addEventListener('click', (e) => {

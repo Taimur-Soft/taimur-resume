@@ -1338,14 +1338,30 @@ function importJSON() {
 function loadJSONFile(event) {
   const file = event.target.files[0];
   if (!file) return;
+  // Let the same file be picked again later (onchange won't fire otherwise).
+  event.target.value = '';
+  if (file.size > 10 * 1024 * 1024) {
+    showToast('❌ That file is too large to be a resume file (over 10 MB)', 'error');
+    return;
+  }
   const reader = new FileReader();
   reader.onload = (e) => {
+    let obj;
     try {
-      const data = JSON.parse(e.target.result);
-      restoreFromData(data);
-      showToast('✅ Resume imported successfully!', 'success');
+      obj = JSON.parse(e.target.result);
     } catch (err) {
-      showToast('❌ Invalid JSON file', 'error');
+      showToast('❌ This file is not valid JSON', 'error');
+      return;
+    }
+    // auth.js knows about accounts: it handles both a single exported
+    // resume and the full "Download my data" backup.
+    if (typeof handleImportedJSON === 'function') {
+      handleImportedJSON(obj);
+    } else if (obj && typeof obj.personal === 'object') {
+      restoreFromData(obj);
+      showToast('✅ Resume imported', 'success');
+    } else {
+      showToast('❌ This is not a Taimur Resume file', 'error');
     }
   };
   reader.readAsText(file);

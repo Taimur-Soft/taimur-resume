@@ -838,6 +838,11 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 .account-ai-meter span[data-level="high"] { background: var(--warning); }
 .account-ai-meter span[data-level="full"] { background: var(--danger); }
 
+.account-export-grid { display: grid; gap: 10px; }
+.account-export-option .hint-text { margin: 4px 2px 0; }
+.import-pick-content { max-width: 480px; }
+.import-pick-list { max-height: 50vh; overflow-y: auto; margin: 12px 0 4px; }
+
 /* ── SIGN-OUT DIALOG ────────────────────────────────── */
 .signout-modal-content { max-width: 400px; }
 .signout-check { display: flex; gap: 10px; align-items: flex-start; margin: 14px 0 4px; font-size: 13px; cursor: pointer; }
