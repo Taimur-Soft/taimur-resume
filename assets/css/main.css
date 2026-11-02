@@ -531,7 +531,9 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
    background variant), skill tags. Layout-specific containers below re-skin
    these through CSS variables set per .theme-* class, not by duplicating
    markup or rules per template. */
-.rv-eu { min-height: 594px; }
+/* overflow-wrap: a very long word or link with no spaces breaks onto the
+   next line rather than running off the page. */
+.rv-eu { min-height: 594px; overflow-wrap: break-word; }
 .rv-eu .eu-section { margin-bottom: 16px; }
 .rv-eu .eu-section h3 {
   font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
@@ -540,8 +542,11 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 }
 .rv-eu .eu-section h3 i { margin-right: 6px; }
 .eu-item { margin-bottom: 10px; }
-.eu-item-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-.eu-item-head strong { font-size: 11px; font-weight: 700; color: var(--eu-heading-color, #1e293b); }
+/* Title and date share a line when there is room. In a narrow column (the
+   banner layout's right side) the date moves to its own line under the
+   title instead of sticking out past the edge of the page. */
+.eu-item-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; column-gap: 8px; row-gap: 1px; }
+.eu-item-head strong { flex: 1 1 9em; min-width: 0; font-size: 11px; font-weight: 700; color: var(--eu-heading-color, #1e293b); }
 .eu-date { font-size: 9px; color: #64748b; white-space: nowrap; flex-shrink: 0; }
 .eu-item-sub { font-size: 10px; color: #64748b; margin-top: 2px; }
 .eu-item-desc { font-size: 10px; color: #475569; margin-top: 4px; line-height: 1.55; }
@@ -624,7 +629,9 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 .rv-eu-banner .eu-banner-text h1 { font-size: 20px; font-weight: 800; font-family: var(--eu-heading-font, 'Inter', sans-serif); }
 .rv-eu-banner .eu-banner-text .eu-designation { font-size: 12px; opacity: 0.9; margin-top: 4px; }
 .rv-eu-banner .eu-contact-bar { background: var(--eu-contactbar-bg, #1e293b); padding: 8px 24px; display: flex; flex-wrap: wrap; gap: 14px; }
-.eu-contact-inline { font-size: 9.5px; color: #cbd5e1; display: inline-flex; gap: 5px; align-items: center; }
+/* A long email or link may break mid-word rather than push past the page. */
+.eu-contact-inline { font-size: 9.5px; color: #cbd5e1; display: inline-flex; gap: 5px; align-items: center; max-width: 100%; overflow-wrap: anywhere; }
+.rv-eu-banner .eu-banner-text, .rv-eu-timeline .eu-tl-header > div { min-width: 0; }
 .eu-contact-inline i { opacity: 0.85; }
 .rv-eu-banner .eu-body { display: grid; grid-template-columns: 63% 37%; }
 .rv-eu-banner .eu-main { padding: 18px 18px 18px 22px; background: var(--eu-surface, #fff); }
