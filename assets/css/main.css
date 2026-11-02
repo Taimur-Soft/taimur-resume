@@ -718,6 +718,18 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 .pdf-tight-1 .rv-eu-banner .eu-side-col, .pdf-tight-2 .rv-eu-banner .eu-side-col { padding: 14px 16px 14px 12px; }
 .pdf-tight-1 .rv-eu-timeline, .pdf-tight-2 .rv-eu-timeline { padding: 20px 24px; }
 .pdf-tight-1 .rv-eu-timeline .eu-tl-header, .pdf-tight-2 .rv-eu-timeline .eu-tl-header { margin-bottom: 10px; padding-bottom: 10px; }
+/* Level 3 (on top of level 2), only when nothing else fits one page:
+   slightly tighter lines and gaps. Text size still unchanged. */
+.pdf-tight-2.pdf-tight-3 .rv-eu .eu-section { margin-bottom: 7px; }
+.pdf-tight-2.pdf-tight-3 .rv-eu .eu-section h3 { margin-bottom: 5px; }
+.pdf-tight-2.pdf-tight-3 .eu-item { margin-bottom: 5px; }
+.pdf-tight-2.pdf-tight-3 .eu-item-sub { margin-top: 1px; }
+.pdf-tight-2.pdf-tight-3 .eu-item-desc { margin-top: 1px; line-height: 1.34; }
+.pdf-tight-2.pdf-tight-3 .eu-about-text { line-height: 1.42; }
+.pdf-tight-2.pdf-tight-3 .rv-eu-timeline { padding: 14px 22px; }
+.pdf-tight-2.pdf-tight-3 .rv-eu-timeline .eu-tl-header .eu-photo { width: 50px; height: 50px; }
+.pdf-tight-2.pdf-tight-3 .rv-eu-timeline .eu-designation { margin: 2px 0 4px; }
+
 /* Timeline: the closing sections side by side (split in app.js). */
 .rv-eu-timeline .eu-tl-extras.is-split { display: grid; grid-template-columns: 1fr 1fr; column-gap: 26px; align-items: start; }
 .rv-eu-timeline .eu-tl-col { min-width: 0; }

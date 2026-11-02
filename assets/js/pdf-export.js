@@ -34,7 +34,8 @@ const PDF_LAYOUTS = [
   { w: 630, tight: 0 },
   { w: 630, tight: 1 },
   { w: 660, tight: 1 },
-  { w: 660, tight: 2 }
+  { w: 660, tight: 2 },
+  { w: 660, tight: 3 }
 ];
 const PDF_TARGET_PX = 2100;                   // ≈ 250 DPI across A4
 const PDF_CONT_TOP = 30;                      // top margin (px) on pages after the first
@@ -48,8 +49,9 @@ const pdfPageH = (w) => Math.round(w * 297 / 210);
 
 // Gives a copy of the resume its PDF size, outside any page layout.
 function pdfStyleResume(el, w, tight = 0) {
-  el.classList.remove('pdf-tight-1', 'pdf-tight-2');
+  el.classList.remove('pdf-tight-1', 'pdf-tight-2', 'pdf-tight-3');
   if (tight) el.classList.add('pdf-tight-' + tight);
+  if (tight === 3) el.classList.add('pdf-tight-2'); // level 3 builds on level 2
   Object.assign(el.style, {
     width: w + 'px', maxWidth: w + 'px', minWidth: w + 'px',
     minHeight: pdfPageH(w) + 'px', height: 'auto', flex: 'none',
