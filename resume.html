@@ -59,7 +59,7 @@
           </div>
         </div>
       </div>
-      <button onclick="importJSON()" class="btn-icon" title="Import from JSON file">
+      <button onclick="importJSON()" class="btn-icon" title="Import a resume: PDF, Word (.docx) or a JSON file from Export / backup">
         <i class="fas fa-upload"></i> Import
       </button>
       <button onclick="exportJSON()" class="btn-icon" title="Export resume as JSON">
@@ -478,7 +478,7 @@
   </div><!-- end .app-layout -->
 
   <!-- Hidden JSON file input -->
-  <input type="file" id="jsonFileInput" accept=".json" style="display:none" onchange="loadJSONFile(event)">
+  <input type="file" id="jsonFileInput" accept=".pdf,.docx,.json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/json" style="display:none" onchange="loadJSONFile(event)">
 
   <!-- Auth Modal (Sign In / Sign Up) -->
   <div id="authModal" class="share-modal" style="display:none">
@@ -755,6 +755,7 @@
   <script src="assets/js/pdf-export.js"></script>
   <script src="assets/js/supabase-config.js"></script>
   <script src="assets/js/auth.js"></script>
+  <script src="assets/js/resume-import.js"></script>
   <script src="assets/js/app.js"></script>
 
 </body>

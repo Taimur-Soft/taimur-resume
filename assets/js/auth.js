@@ -879,6 +879,8 @@ function openImportPicker(list) {
   const listEl = document.getElementById('importPickList');
   const allBtn = document.getElementById('importAllBtn');
   const note = document.getElementById('importPickNote');
+  document.getElementById('importPickTitle').innerHTML = '<i class="fas fa-box-archive"></i> Restore from backup';
+  listEl.classList.remove('is-preview');
   listEl.innerHTML = list.map((r, i) => {
     const p = r.data.personal || {};
     const who = [p.firstname, p.lastname].filter(Boolean).join(' ');

@@ -840,8 +840,13 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 
 .account-export-grid { display: grid; gap: 10px; }
 .account-export-option .hint-text { margin: 4px 2px 0; }
-.import-pick-content { max-width: 480px; }
+/* The hidden attribute must win over classes that set display (e.g. a
+   .btn-primary or a flex label that should stay hidden). */
+[hidden] { display: none !important; }
+.import-pick-content { max-width: 480px; max-height: 90vh; overflow-y: auto; }
 .import-pick-list { max-height: 50vh; overflow-y: auto; margin: 12px 0 4px; }
+.import-pick-list.is-preview { max-height: none; overflow: visible; }
+.import-preview dt i { width: 16px; text-align: center; margin-right: 4px; }
 
 /* ── SIGN-OUT DIALOG ────────────────────────────────── */
 .signout-modal-content { max-width: 400px; }

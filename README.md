@@ -42,7 +42,8 @@ A free, browser-based resume builder with a live preview, 15 Europass-format tem
 
 ### Export and sharing
 - **PDF download** as paginated A4 (html2canvas + jsPDF), with browser print as a fallback.
-- **JSON export and import** for backups.
+- **Import from PDF, Word (.docx) or JSON.** PDF and Word text is read in the browser (pdf.js, mammoth.js, loaded only when needed); Gemini sorts it into the builder's sections using only what the file says, and a preview shows what was found before it opens as a new resume. JSON accepts a single exported resume or a full account backup.
+- **JSON export** for backups.
 - **Shareable link and QR code.** The resume is compressed into the URL itself (lz-string), so no server stores shared resumes. The link is shortened through a small serverless function.
 
 ---
@@ -101,6 +102,7 @@ Most of the app runs in the browser. The server code is two small functions:
 │       ├── auth.js         Sign-up/sign-in, cloud save, My Resumes, account settings
 │       ├── ai-tools.js     ATS keyword score, AI job match, grammar and tone checks
 │       ├── github-import.js
+│       ├── resume-import.js  Import from PDF / Word / JSON (AI sorts the text into sections)
 │       ├── pdf-export.js
 │       ├── share.js        Link compression, shortening, QR code
 │       └── supabase-config.js

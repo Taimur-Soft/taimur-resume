@@ -1340,6 +1340,11 @@ function loadJSONFile(event) {
   if (!file) return;
   // Let the same file be picked again later (onchange won't fire otherwise).
   event.target.value = '';
+  // PDF, Word and JSON all go through resume-import.js.
+  if (typeof importResumeFile === 'function') {
+    importResumeFile(file);
+    return;
+  }
   if (file.size > 10 * 1024 * 1024) {
     showToast('❌ That file is too large to be a resume file (over 10 MB)', 'error');
     return;
