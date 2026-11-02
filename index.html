@@ -197,16 +197,43 @@
     @media (max-width: 900px) {
       .nav-links { display: none; }
     }
+    /* Signed-in chip (shown instead of Sign in / Sign up) */
+    .nav-account {
+      display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px;
+      border-radius: 99px; text-decoration: none; color: var(--text); font-weight: 600; font-size: 14px;
+      border: 1px solid var(--border); transition: background 0.15s;
+    }
+    .nav-account:hover { background: var(--primary-soft); }
+    .nav-account[hidden] { display: none; }
+    .nav-avatar {
+      width: 28px; height: 28px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--primary-fill); color: var(--on-primary); font-size: 12px; font-weight: 700;
+    }
+    .nav-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .nav-account-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    [data-auth="out"][hidden] { display: none !important; }
+
     @media (max-width: 640px) {
       nav { padding: 0 16px; }
       .nav-actions { gap: 6px; }
-      .nav-signin, .nav-signup, .nav-divider { display: none; }
+      /* Phones: keep a compact Sign in; Sign up is one tap away inside it. */
+      .nav-signup, .nav-divider { display: none; }
+      .nav-signin { padding: 8px 10px; font-size: 13px; white-space: nowrap; }
+      .nav-account { padding: 3px; border: none; }
+      .nav-account-name { display: none; }
       .nav-cta { padding: 9px 14px; font-size: 13px; }
     }
-    @media (max-width: 360px) {
+    @media (max-width: 400px) {
       nav { padding: 0 12px; }
-      .nav-cta { padding: 8px 12px; }
+      .nav-actions { gap: 4px; }
+      .nav-cta { padding: 8px 11px; font-size: 12px; }
       .nav-cta i { display: none; }
+      .nav-signin { padding: 8px 6px; }
+    }
+    @media (max-width: 340px) {
+      .nav-cta { padding: 7px 9px; font-size: 11.5px; }
+      .nav-logo .logo-icon { width: 32px; height: 32px; }
     }
     @media (max-width: 480px) {
       .nav-logo .logo-text { display: none; }
@@ -230,9 +257,13 @@
     <div class="nav-actions">
       <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Switch to dark mode" title="Switch to dark mode"><i class="fas fa-moon"></i></button>
       <span class="nav-divider" aria-hidden="true"></span>
-      <a href="resume.html#signin" class="nav-signin">Sign in</a>
-      <a href="resume.html#signup" class="nav-signup">Sign up</a>
-      <a href="resume.html" class="nav-cta">Build My Resume, Free <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+      <a href="resume.html#signin" class="nav-signin" data-auth="out">Sign in</a>
+      <a href="resume.html#signup" class="nav-signup" data-auth="out">Sign up</a>
+      <a href="resume.html" class="nav-account" id="navAccount" data-auth="in" hidden title="Open your resumes">
+        <span class="nav-avatar" id="navAvatar" aria-hidden="true"></span>
+        <span class="nav-account-name" id="navAccountName">My resumes</span>
+      </a>
+      <a href="resume.html" class="nav-cta" id="navCta"><span id="navCtaText">Build My Resume, Free</span> <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
     </div>
   </nav>
 
@@ -404,6 +435,34 @@
       var update = function () { nav.classList.toggle('nav-scrolled', window.scrollY > 4); };
       window.addEventListener('scroll', update, { passive: true });
       update();
+    })();
+  </script>
+
+  <!-- Knows whether you're signed in, so the menu shows your account instead
+       of Sign in / Sign up. Reads the saved session only; nothing is sent. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-config.js"></script>
+  <script>
+    (async function () {
+      if (typeof supabaseClient === 'undefined') return;
+      let user = null;
+      try { user = (await supabaseClient.auth.getSession()).data?.session?.user || null; } catch (e) { return; }
+      if (!user) return;
+      const meta = user.user_metadata || {};
+      const name = (meta.full_name || '').trim();
+      document.querySelectorAll('[data-auth="out"]').forEach(el => { el.hidden = true; });
+      document.getElementById('navAccount').hidden = false;
+      document.getElementById('navAccountName').textContent = name ? name.split(/\s+/)[0] : 'My resumes';
+      const avatar = document.getElementById('navAvatar');
+      if (meta.avatar_url && /^https:\/\//i.test(meta.avatar_url)) {
+        const img = document.createElement('img');
+        img.src = meta.avatar_url;
+        img.alt = '';
+        avatar.appendChild(img);
+      } else {
+        avatar.textContent = (name || user.email || '?').charAt(0).toUpperCase();
+      }
+      document.getElementById('navCtaText').textContent = 'Open My Resume';
     })();
   </script>
 

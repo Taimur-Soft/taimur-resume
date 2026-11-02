@@ -529,49 +529,54 @@
 
   <!-- Auth Modal (Sign In / Sign Up) -->
   <div id="authModal" class="share-modal" style="display:none">
-    <div class="share-modal-content">
-      <button onclick="closeAuthModal()" class="btn-close">×</button>
+    <div class="share-modal-content" role="dialog" aria-modal="true">
+      <button onclick="closeAuthModal()" class="btn-close" aria-label="Close">×</button>
 
       <!-- Step: Sign In -->
       <div id="authStepSignin">
         <h4><i class="fas fa-user"></i> Sign In</h4>
         <form id="authFormSignin" onsubmit="handleSigninSubmit(event)">
           <div class="form-elem" style="margin-bottom:12px">
-            <label>Email</label>
-            <input type="email" id="signinEmail" class="form-input" required placeholder="you@example.com">
+            <label for="signinEmail">Email</label>
+            <input type="email" id="signinEmail" class="form-input" required autocomplete="email" placeholder="you@example.com">
           </div>
-          <div class="form-elem" style="margin-bottom:16px">
-            <label>Password</label>
-            <input type="password" id="signinPassword" class="form-input" required placeholder="Your password">
+          <div class="form-elem" style="margin-bottom:6px">
+            <label for="signinPassword">Password</label>
+            <div class="password-field">
+              <input type="password" id="signinPassword" class="form-input" required autocomplete="current-password" placeholder="Your password">
+              <button type="button" class="password-eye" onclick="togglePasswordVisibility('signinPassword', this)" aria-label="Show password"><i class="fas fa-eye"></i></button>
+            </div>
           </div>
+          <p class="auth-forgot"><a href="#" onclick="startPasswordReset(); return false;">Forgot password?</a></p>
           <div id="signinError" class="field-error-msg" style="display:none;margin-bottom:12px"></div>
           <button type="submit" id="signinSubmitBtn" class="btn-primary" style="width:100%;justify-content:center">Sign In</button>
         </form>
         <p class="hint-text" style="text-align:center;margin-top:16px">
-          Don't have an account? <a href="#" onclick="showAuthStep('signupEmail'); return false;">Sign Up</a>
+          Don't have an account? <a href="#" onclick="setAuthFlow('signup'); showAuthStep('signupEmail'); return false;">Sign Up</a>
         </p>
       </div>
 
-      <!-- Step: Sign Up — email only -->
+      <!-- Step: Sign Up / Reset — email only -->
       <div id="authStepSignupEmail" style="display:none">
-        <h4><i class="fas fa-user-plus"></i> Create Account</h4>
+        <h4 id="authEmailTitle"><i class="fas fa-user-plus"></i> Create Account</h4>
+        <p id="authEmailHint" class="hint-text" style="margin-bottom:14px"></p>
         <form id="authFormSignupEmail" onsubmit="handleSignupEmailSubmit(event)">
           <div class="form-elem" style="margin-bottom:16px">
-            <label>Email</label>
-            <input type="email" id="signupEmail" class="form-input" required placeholder="you@example.com">
+            <label for="signupEmail">Email</label>
+            <input type="email" id="signupEmail" class="form-input" required autocomplete="email" placeholder="you@example.com">
           </div>
           <div id="signupEmailError" class="field-error-msg" style="display:none;margin-bottom:12px"></div>
           <button type="submit" id="signupEmailSubmitBtn" class="btn-primary" style="width:100%;justify-content:center">Send Code</button>
         </form>
         <p class="hint-text" style="text-align:center;margin-top:16px">
-          Already have an account? <a href="#" onclick="showAuthStep('signin'); return false;">Sign In</a>
+          <span id="authEmailBackText">Already have an account?</span> <a href="#" onclick="showAuthStep('signin'); return false;">Sign In</a>
         </p>
       </div>
 
-      <!-- Step: Sign Up — enter code -->
+      <!-- Step: Sign Up / Reset — enter code -->
       <div id="authStepSignupCode" style="display:none">
-        <h4><i class="fas fa-envelope-open-text"></i> Verify Email</h4>
-        <p class="hint-text" style="margin-bottom:16px">We sent a verification code to <strong id="signupCodeEmailLabel"></strong></p>
+        <h4><i class="fas fa-envelope-open-text"></i> Check your email</h4>
+        <p class="hint-text" style="margin-bottom:16px">We sent a code to <strong id="signupCodeEmailLabel"></strong>. It can take a minute; check Spam too.</p>
         <form id="authFormSignupCode" onsubmit="handleSignupCodeSubmit(event)">
           <div class="form-elem" style="margin-bottom:16px">
             <label>Verification Code</label>
@@ -585,17 +590,22 @@
         </p>
       </div>
 
-      <!-- Step: Sign Up — set password -->
+      <!-- Step: Sign Up / Reset — set password -->
       <div id="authStepSignupPassword" style="display:none">
-        <h4><i class="fas fa-lock"></i> Set a Password</h4>
+        <h4 id="authPasswordTitle"><i class="fas fa-lock"></i> Set a Password</h4>
         <form id="authFormSignupPassword" onsubmit="handleSignupPasswordSubmit(event)">
           <div class="form-elem" style="margin-bottom:12px">
-            <label>Password</label>
-            <input type="password" id="signupPassword" class="form-input" required minlength="6" placeholder="At least 6 characters">
+            <label for="signupPassword">Password</label>
+            <div class="password-field">
+              <input type="password" id="signupPassword" class="form-input" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters" oninput="updatePasswordStrength('signupPassword', 'signupMeterBar', 'signupMeterText')">
+              <button type="button" class="password-eye" onclick="togglePasswordVisibility('signupPassword', this)" aria-label="Show password"><i class="fas fa-eye"></i></button>
+            </div>
+            <div class="password-meter" aria-hidden="true"><span id="signupMeterBar"></span></div>
+            <div id="signupMeterText" class="password-meter-text" aria-live="polite"></div>
           </div>
           <div class="form-elem" style="margin-bottom:16px">
-            <label>Confirm Password</label>
-            <input type="password" id="signupPasswordConfirm" class="form-input" required minlength="6" placeholder="Retype password">
+            <label for="signupPasswordConfirm">Confirm Password</label>
+            <input type="password" id="signupPasswordConfirm" class="form-input" required minlength="8" autocomplete="new-password" placeholder="Retype password">
           </div>
           <div id="signupPasswordError" class="field-error-msg" style="display:none;margin-bottom:12px"></div>
           <button type="submit" id="signupPasswordSubmitBtn" class="btn-primary" style="width:100%;justify-content:center">Set Password</button>

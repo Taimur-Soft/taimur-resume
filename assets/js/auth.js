@@ -332,13 +332,39 @@ document.addEventListener('keydown', (e) => {
 // New sign-up flow: email → 6-digit code (OTP) → set password → forced
 // re-login. Avoids the old signUp()+confirmation-link flow entirely, since
 // clicking the link from the email client was breaking for the user.
-async function authSendSignupCode(email) {
+// Sign up: may create the account. Password reset: existing accounts only.
+async function authSendSignupCode(email, { create = true } = {}) {
   const { data, error } = await supabaseClient.auth.signInWithOtp({
     email,
-    options: { shouldCreateUser: true }
+    options: { shouldCreateUser: create }
   });
   if (error) throw error;
   return data;
+}
+
+// Supabase's raw messages ("Invalid login credentials", "Token has expired
+// or is invalid"...) rewritten as plain advice.
+function friendlyAuthError(err, context = '') {
+  const msg = String(err?.message || err || '');
+  const code = String(err?.code || '');
+  const status = Number(err?.status) || 0;
+  if (/failed to fetch|network|load failed/i.test(msg)) return 'No internet connection. Check it and try again.';
+  if (status === 429 || /rate limit|too many|over_email_send_rate_limit|security purposes/i.test(msg + code)) {
+    return context === 'code-send' || context === 'reset'
+      ? 'Too many code emails were sent recently. Please wait a few minutes, then try again.'
+      : 'Too many attempts. Please wait a few minutes and try again.';
+  }
+  if (/invalid login credentials|invalid_credentials/i.test(msg + code)) return 'Email or password is incorrect.';
+  if (/email not confirmed/i.test(msg)) return 'Please verify your email first: sign up again with the same email to get a new code.';
+  if (/token has expired|otp_expired|invalid.*(otp|token)|token.*invalid/i.test(msg + code)) return 'This code is wrong or has expired. Check the newest email, or tap "Resend code".';
+  if (/signups not allowed|user not found|otp_disabled/i.test(msg + code)) {
+    return context === 'reset' ? 'No account uses this email. Check the spelling, or create a new account.' : 'Sign-ups are turned off right now.';
+  }
+  if (/same.?password|should be different/i.test(msg + code)) return 'Choose a password that is different from your old one.';
+  if (/weak.?password|known to be weak|pwned/i.test(msg + code)) return 'This password is too easy to guess. Try a longer one with numbers and symbols.';
+  if (/password should be at least|password.*short/i.test(msg)) return 'This password is too short.';
+  if (/invalid.*email|email.*invalid|unable to validate email/i.test(msg)) return 'That email address doesn\'t look right.';
+  return msg || 'Something went wrong. Please try again.';
 }
 
 async function authVerifySignupCode(email, code) {
@@ -665,10 +691,12 @@ function passwordScore(pw) {
   return Math.min(4, score);
 }
 
-function updatePasswordStrength() {
-  const input = document.getElementById('accountNewPassword');
-  const bar = document.getElementById('passwordMeterBar');
-  const text = document.getElementById('passwordMeterText');
+// Strength meter under a password box (Account Settings by default, also
+// the sign-up / reset form).
+function updatePasswordStrength(inputId = 'accountNewPassword', barId = 'passwordMeterBar', textId = 'passwordMeterText') {
+  const input = document.getElementById(inputId);
+  const bar = document.getElementById(barId);
+  const text = document.getElementById(textId);
   if (!input || !bar || !text) return;
   const s = passwordScore(input.value);
   const labels = ['Too weak', 'Weak', 'Fair', 'Good', 'Strong'];
@@ -1011,7 +1039,10 @@ async function deleteMyAccount() {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
   try {
     const { error: authError } = await supabaseClient.auth.signInWithPassword({ email: currentUser.email, password });
-    if (authError) throw new Error('That password is not correct.');
+    if (authError) {
+      throw new Error(/invalid login credentials|invalid_credentials/i.test(authError.message + (authError.code || ''))
+        ? 'That password is not correct.' : friendlyAuthError(authError));
+    }
 
     // Make sure the server side is set up (same SQL file) before touching
     // anything, so a missing setup can't leave a half-deleted account.
@@ -1150,7 +1181,10 @@ async function changeAccountPassword(event) {
     // Confirm it's really the account owner (e.g. not someone at an
     // unlocked computer) before changing the password.
     const { error: authError } = await supabaseClient.auth.signInWithPassword({ email: currentUser.email, password: currentPassword });
-    if (authError) throw new Error('Your current password is not correct');
+    if (authError) {
+      throw new Error(/invalid login credentials|invalid_credentials/i.test(authError.message + (authError.code || ''))
+        ? 'Your current password is not correct' : friendlyAuthError(authError));
+    }
     const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
     if (error) throw error;
     ['accountCurrentPassword', 'accountNewPassword', 'accountConfirmPassword'].forEach(id => { document.getElementById(id).value = ''; });
@@ -1159,7 +1193,7 @@ async function changeAccountPassword(event) {
     successEl.style.display = 'block';
     showToast('✅ Password updated', 'success');
   } catch (err) {
-    errorEl.textContent = err.message || 'Could not update password';
+    errorEl.textContent = friendlyAuthError(err, 'password');
     errorEl.style.display = 'block';
   } finally {
     btn.disabled = false;
@@ -1199,9 +1233,37 @@ function showAuthStep(step) {
   });
 }
 
+// 'signup' creates an account; 'reset' sets a new password for an existing
+// one. Both use the same three steps (email → code → password).
+let authFlow = 'signup';
+function setAuthFlow(flow) {
+  authFlow = flow === 'reset' ? 'reset' : 'signup';
+  const reset = authFlow === 'reset';
+  document.getElementById('authEmailTitle').innerHTML = reset
+    ? '<i class="fas fa-key"></i> Reset Password'
+    : '<i class="fas fa-user-plus"></i> Create Account';
+  document.getElementById('authEmailHint').textContent = reset
+    ? 'Enter the email of your account. We\'ll send you a code to set a new password.'
+    : 'We\'ll email you a short code to confirm it\'s you. (If this email already has an account, you\'ll set a new password for it.)';
+  document.getElementById('authEmailBackText').textContent = reset ? 'Remembered it?' : 'Already have an account?';
+  document.getElementById('authPasswordTitle').innerHTML = reset
+    ? '<i class="fas fa-lock"></i> Choose a New Password'
+    : '<i class="fas fa-lock"></i> Set a Password';
+}
+
+function startPasswordReset() {
+  const typed = document.getElementById('signinEmail').value.trim();
+  setAuthFlow('reset');
+  showAuthStep('signupEmail');
+  if (typed) document.getElementById('signupEmail').value = typed;
+  document.getElementById('signupEmail').focus();
+}
+
 function openAuthModal(mode = 'signin') {
   document.getElementById('authModal').style.display = 'flex';
-  showAuthStep(mode === 'signup' ? 'signupEmail' : 'signin');
+  if (mode === 'signup' || mode === 'reset') setAuthFlow(mode);
+  showAuthStep(mode === 'signup' || mode === 'reset' ? 'signupEmail' : 'signin');
+  setTimeout(() => document.querySelector('#authModal [style*="block"] input, #authStepSignin input')?.focus(), 50);
 }
 
 function closeAuthModal() {
@@ -1214,6 +1276,7 @@ function closeAuthModal() {
 
 // Kept for the "Sign Up" / "Sign In" links inside the modal itself.
 function switchAuthMode() {
+  if (authStep === 'signin') setAuthFlow('signup');
   showAuthStep(authStep === 'signin' ? 'signupEmail' : 'signin');
 }
 
@@ -1235,9 +1298,19 @@ async function handleSigninSubmit(event) {
     await authSignIn(email, password);
     showToast('✅ Signed in!', 'success');
     closeAuthModal();
+    // Leave #signin out of the address, so a refresh doesn't reopen the box.
+    if (/^#(signin|signup)$/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search);
   } catch (err) {
     errorEl.style.color = 'var(--danger)';
-    errorEl.textContent = err.message || 'Something went wrong';
+    errorEl.innerHTML = '';
+    errorEl.append(friendlyAuthError(err, 'signin'));
+    if (/invalid login credentials|invalid_credentials/i.test((err?.message || '') + (err?.code || ''))) {
+      const a = document.createElement('a');
+      a.href = '#';
+      a.textContent = ' Forgot password?';
+      a.onclick = (e) => { e.preventDefault(); startPasswordReset(); };
+      errorEl.append(a);
+    }
     errorEl.style.display = 'block';
   } finally {
     submitBtn.disabled = false;
@@ -1259,15 +1332,16 @@ async function handleSignupEmailSubmit(event) {
   errorEl.style.display = 'none';
 
   try {
-    await authSendSignupCode(email);
+    await authSendSignupCode(email, { create: authFlow !== 'reset' });
     pendingSignupEmail = email;
     resendCodeCooldownUntil = Date.now() + 30000;
     document.getElementById('signupCodeEmailLabel').textContent = email;
     document.getElementById('signupCode').value = '';
     showAuthStep('signupCode');
+    document.getElementById('signupCode').focus();
   } catch (err) {
     errorEl.style.color = 'var(--danger)';
-    errorEl.textContent = err.message || 'Could not send verification code';
+    errorEl.textContent = friendlyAuthError(err, authFlow === 'reset' ? 'reset' : 'code-send');
     errorEl.style.display = 'block';
   } finally {
     submitBtn.disabled = false;
@@ -1277,16 +1351,17 @@ async function handleSignupEmailSubmit(event) {
 
 async function resendSignupCode() {
   const link = document.getElementById('resendCodeLink');
-  if (Date.now() < resendCodeCooldownUntil) {
-    showToast('Please wait a moment before requesting another code', 'error');
+  const wait = Math.ceil((resendCodeCooldownUntil - Date.now()) / 1000);
+  if (wait > 0) {
+    showToast(`Please wait ${wait} seconds before requesting another code`, 'error');
     return;
   }
   try {
-    await authSendSignupCode(pendingSignupEmail);
+    await authSendSignupCode(pendingSignupEmail, { create: authFlow !== 'reset' });
     resendCodeCooldownUntil = Date.now() + 30000;
-    showToast('✅ Code resent', 'success');
+    showToast('✅ A new code is on its way', 'success');
   } catch (err) {
-    showToast('❌ ' + (err.message || 'Could not resend code'), 'error');
+    showToast('❌ ' + friendlyAuthError(err, 'code-send'), 'error');
   }
 }
 
@@ -1304,13 +1379,15 @@ async function handleSignupCodeSubmit(event) {
   errorEl.style.display = 'none';
 
   try {
-    await authVerifySignupCode(pendingSignupEmail, code);
+    await authVerifySignupCode(pendingSignupEmail, code.replace(/\s+/g, ''));
     document.getElementById('signupPassword').value = '';
     document.getElementById('signupPasswordConfirm').value = '';
+    updatePasswordStrength('signupPassword', 'signupMeterBar', 'signupMeterText');
     showAuthStep('signupPassword');
+    document.getElementById('signupPassword').focus();
   } catch (err) {
     errorEl.style.color = 'var(--danger)';
-    errorEl.textContent = err.message || 'Invalid or expired code';
+    errorEl.textContent = friendlyAuthError(err, 'code');
     errorEl.style.display = 'block';
   } finally {
     submitBtn.disabled = false;
@@ -1326,9 +1403,15 @@ async function handleSignupPasswordSubmit(event) {
   const errorEl = document.getElementById('signupPasswordError');
   const submitBtn = document.getElementById('signupPasswordSubmitBtn');
 
-  if (password.length < 6) {
+  if (password.length < 8) {
     errorEl.style.color = 'var(--danger)';
-    errorEl.textContent = 'Password must be at least 6 characters';
+    errorEl.textContent = 'Password must be at least 8 characters';
+    errorEl.style.display = 'block';
+    return;
+  }
+  if (passwordScore(password) < 2) {
+    errorEl.style.color = 'var(--danger)';
+    errorEl.textContent = 'That password is too easy to guess. Add more characters, numbers or symbols.';
     errorEl.style.display = 'block';
     return;
   }
@@ -1356,12 +1439,15 @@ async function handleSignupPasswordSubmit(event) {
     setActiveCloudResumeId(null);
     pendingSignupEmail = '';
 
-    try { sessionStorage.setItem('tr_just_signed_up_email', emailForLogin); } catch (e) {}
+    try {
+      sessionStorage.setItem('tr_just_signed_up_email', emailForLogin);
+      sessionStorage.setItem('tr_auth_flow_done', authFlow);
+    } catch (e) {}
     window.location.hash = 'signin';
     window.location.reload();
   } catch (err) {
     errorEl.style.color = 'var(--danger)';
-    errorEl.textContent = err.message || 'Something went wrong';
+    errorEl.textContent = friendlyAuthError(err, 'password');
     errorEl.style.display = 'block';
   } finally {
     submitBtn.disabled = false;
@@ -1654,12 +1740,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   let justSignedUpEmail = null;
   try { justSignedUpEmail = sessionStorage.getItem('tr_just_signed_up_email'); } catch (e) {}
   if (justSignedUpEmail) {
-    try { sessionStorage.removeItem('tr_just_signed_up_email'); } catch (e) {}
+    let flowDone = 'signup';
+    try {
+      flowDone = sessionStorage.getItem('tr_auth_flow_done') || 'signup';
+      sessionStorage.removeItem('tr_just_signed_up_email');
+      sessionStorage.removeItem('tr_auth_flow_done');
+    } catch (e) {}
     if (!currentUser) {
       openAuthModal('signin');
       const emailInput = document.getElementById('signinEmail');
       if (emailInput) emailInput.value = justSignedUpEmail;
-      showToast('✅ Account created! Please sign in.', 'success');
+      // After openAuthModal's own focus, so the cursor lands in the password box.
+      setTimeout(() => document.getElementById('signinPassword')?.focus(), 120);
+      showToast(flowDone === 'reset' ? '✅ Password changed! Sign in with your new password.' : '✅ Account created! Please sign in.', 'success');
     }
   }
   ['authModal', 'myResumesModal', 'accountModal', 'signOutModal', 'importPickModal'].forEach(id => {
