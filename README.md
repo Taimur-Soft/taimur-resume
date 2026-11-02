@@ -79,7 +79,7 @@ flowchart LR
 Most of the app runs in the browser. The server code is two small functions:
 
 - `api/shorten.js` proxies is.gd to avoid CORS errors and only shortens this site's own resume links (`/view.html`), so it can't be used by others as a free shortener.
-- `api/gemini.js` calls Gemini with the site's key for signed-in users. It verifies the Supabase session, counts each request against a daily limit (`supabase/ai-usage.sql`), and only forwards plain text prompts to two allowed models.
+- `api/gemini.js` calls Gemini with the site's key for signed-in users. It verifies the Supabase session, counts each request against a daily limit (`supabase/ai-usage.sql`), and only forwards plain text prompts to a fixed list of models (`gemini-flash-latest`, with lighter Flash-Lite models as fallbacks).
 
 ---
 

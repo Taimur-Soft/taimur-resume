@@ -7,7 +7,8 @@
 // Protection against misuse:
 // - Only signed-in users (a valid Supabase session token is required).
 // - A daily limit per user, counted in Supabase (see supabase/ai-usage.sql).
-// - Only text prompts to two allowed models, with a capped size and output.
+// - Only text prompts, only to the fixed list of models below, with a
+//   capped size and output.
 // - No CORS headers, so other websites can't call it from their pages.
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://jyotxikfaqfipaaqjufq.supabase.co';
@@ -225,7 +226,7 @@ export default async function handler(req, res) {
     return { ok: r.ok, value: r.ok ? Number(await r.json()) : null };
   };
   const limitReached = () => res.status(429).json({
-    error: `You have used all ${DAILY_LIMIT} free AI requests for today. They reset tomorrow.`,
+    error: `You have used all ${DAILY_LIMIT} AI requests for today. They reset tomorrow.`,
     code: 'daily_limit'
   });
 
@@ -272,7 +273,7 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: 'The AI service is not working right now. Please try again later.', details });
     }
     if (status === 429) {
-      return res.status(503).json({ error: 'The free AI service is very busy right now. Please try again in a minute.', details });
+      return res.status(503).json({ error: 'The AI service is very busy right now. Please try again in a minute.', details });
     }
     if (status === 408) {
       return res.status(503).json({ error: 'Gemini is taking too long right now. Please try again in a minute.', details });

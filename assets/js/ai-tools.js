@@ -2,8 +2,10 @@
 // AI Tools Module
 // 1. ATS Score — client-side keyword matching (free)
 // 2. Grammar Checker — LanguageTool public API (no key)
-// 3. Tone Checker — Google Gemini Flash (free key)
+// 3. Tone Checker — Google Gemini, through the site's server (api/gemini.js)
 // 4. AI Match Analysis — Gemini compares resume and job by meaning
+// 5. Improve with AI — Gemini rewrites one description into bullet points
+// All Gemini requests go through api/gemini.js; the browser never has a key.
 // ======================================================
 
 // ── 1. ATS SCORE ──────────────────────────────────────
@@ -117,8 +119,8 @@ function extractATSKeywords(text) {
 // Helper: get the resume's own text as a single string.
 // Built from collectFormData() so it only contains resume content. Reading
 // every .form-input on the page would also pick up the job description
-// (making every ATS keyword "match"), the Gemini API key, and any sign-in
-// or account fields, and send them to LanguageTool and Gemini.
+// (making every ATS keyword "match") and any sign-in or account fields,
+// and send them to LanguageTool and Gemini.
 function getResumeText() {
   const data = collectFormData();
   // Contact details (email, phone) aren't needed by any check, so they are
@@ -581,7 +583,7 @@ async function checkGrammarAndTone() {
     };
     showLoading('Checking tone with Gemini AI...');
 
-    // Step 2: Tone check (Gemini - needs key)
+    // Step 2: Tone check (Gemini, through api/gemini.js; needs sign-in)
     let toneData = null;
     let toneError = null;
     let toneErrorHint = '';

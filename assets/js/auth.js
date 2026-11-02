@@ -537,7 +537,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// ── AI USAGE (shared key) ───────────────────────────────
+// ── AI USAGE (daily limit per user) ─────────────────────
 let aiUsageInfo = { used: null, limit: null, enabled: null };
 
 async function refreshAIUsage() {
@@ -1053,7 +1053,6 @@ async function deleteMyAccount() {
 
     try {
       localStorage.removeItem(ACTIVE_CLOUD_ID_KEY);
-      localStorage.removeItem('geminiApiKey');
     } catch (e) {}
     await supabaseClient.auth.signOut({ scope: 'local' }).catch(() => {});
     currentUser = null;
