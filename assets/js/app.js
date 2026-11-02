@@ -464,17 +464,24 @@ function sanitizeResumeData(raw) {
 // ── TIMELINE: SECTIONS SIDE BY SIDE IN A COMPACT PDF ────
 // The timeline layout stacks its short closing sections (skills, languages,
 // projects...) across the full width. When the PDF has to be compacted to
-// fit fewer pages (.pdf-tight-*, see pdf-export.js), they are set in two
-// columns instead: the first sections on the left, the rest on the right,
-// split where the two columns come out most even, so the order stays.
+// fit fewer pages (.pdf-tight-*, see pdf-export.js), Education joins them
+// and they are set in two columns: the first sections on the left, the rest
+// on the right, split where the two columns come out most even, so the
+// order stays. The timeline itself then holds the work experience.
 function splitTimelineExtras(root) {
   const extras = root?.querySelector('.rv-eu-timeline .eu-tl-extras');
-  if (!extras) return;
+  const track = root?.querySelector('.rv-eu-timeline .eu-tl-track');
+  if (!extras || !track) return;
   // Undo an earlier split (made for another width or level).
   extras.querySelectorAll(':scope > .eu-tl-col').forEach(col => col.replaceWith(...col.children));
   extras.classList.remove('is-split');
+  const edu = extras.querySelector(':scope > [data-sec="education"]');
+  if (edu) track.appendChild(edu);
+  if (!root.matches('.pdf-tight-1, .pdf-tight-2')) return;
+  const trackEdu = track.querySelector(':scope > [data-sec="education"]');
+  if (trackEdu) extras.prepend(trackEdu);
   const sections = [...extras.children];
-  if (sections.length < 2 || !root.matches('.pdf-tight-1, .pdf-tight-2')) return;
+  if (sections.length < 2) return;
 
   const left = extras.ownerDocument.createElement('div'); // the PDF's copy lives in another document
   const right = extras.ownerDocument.createElement('div');
@@ -829,7 +836,7 @@ function buildResumeHTML(rawData) {
         </div>
       </div>
       ${aboutMeHTML}
-      <div class="eu-tl-track">${workExperienceHTML}${educationHTML}</div>
+      <div class="eu-tl-track">${workExperienceHTML}${educationSec}</div>
       <div class="eu-tl-extras">${skillsTagsHTML}${languagesHTML}${projectsHTML}${achievementsHTML}${customHTML}</div>
     </div>`;
 }
