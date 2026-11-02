@@ -13,7 +13,10 @@
 // - Breaks never cut a line, never separate a section title from its first
 //   entry, keep every entry (a job, a degree...) whole, and keep short
 //   sections (languages, skills, certifications) together.
-// - Fit to pages: if a slightly wider layout saves a page, it is used.
+// - Fit to pages (Europass advice: 1 page, 2 at most for long careers):
+//   the most comfortable layout that reaches the fewest pages is used.
+//   Layouts get more compact by trimming white space first, and text never
+//   goes below 9 pt for descriptions (10 pt for the summary).
 // - Pages that continue get top/bottom margins; backgrounds and sidebars
 //   run to the bottom edge of every page; page numbers on multi-page CVs.
 // Quality: ~250 DPI, lossless PNG, plus an invisible text layer so ATS
@@ -21,7 +24,18 @@
 // Falls back to the browser's print-to-PDF if the libraries fail to load.
 // ======================================================
 
-const PDF_WIDTHS = [600, 640, 690];           // layout widths tried, in CSS px across A4
+// Layouts tried, most comfortable first. w = CSS px across the A4 width
+// (595 pt), so text in px gets smaller as w grows: at 660 the 10 px
+// descriptions are 9 pt, the smallest size readability guidance accepts
+// for body text, so w never goes past that. tight = white-space level
+// (.pdf-tight-1 / -2 in main.css), which never changes the text size.
+const PDF_LAYOUTS = [
+  { w: 600, tight: 0 },
+  { w: 630, tight: 0 },
+  { w: 630, tight: 1 },
+  { w: 660, tight: 1 },
+  { w: 660, tight: 2 }
+];
 const PDF_TARGET_PX = 2100;                   // ≈ 250 DPI across A4
 const PDF_CONT_TOP = 30;                      // top margin (px) on pages after the first
 const PDF_BOTTOM = 30;                        // bottom margin (px) on pages that continue
@@ -33,7 +47,9 @@ const PDF_ITEMS = '.eu-item, .eu-skill, .eu-lang-table, .eu-lang-mother, .eu-ski
 const pdfPageH = (w) => Math.round(w * 297 / 210);
 
 // Gives a copy of the resume its PDF size, outside any page layout.
-function pdfStyleResume(el, w) {
+function pdfStyleResume(el, w, tight = 0) {
+  el.classList.remove('pdf-tight-1', 'pdf-tight-2');
+  if (tight) el.classList.add('pdf-tight-' + tight);
   Object.assign(el.style, {
     width: w + 'px', maxWidth: w + 'px', minWidth: w + 'px',
     minHeight: pdfPageH(w) + 'px', height: 'auto', flex: 'none',
@@ -135,12 +151,12 @@ function pdfLatin1(s) {
 }
 
 // Measures the resume at width w without drawing anything.
-function pdfMeasureLive(preview, w) {
+function pdfMeasureLive(preview, w, tight = 0) {
   const host = document.createElement('div');
   host.style.cssText = `position:absolute;left:-30000px;top:0;width:${w}px;visibility:hidden;pointer-events:none`;
   const el = preview.cloneNode(true);
   el.removeAttribute('id');
-  pdfStyleResume(el, w);
+  pdfStyleResume(el, w, tight);
   host.appendChild(el);
   document.body.appendChild(host);
   try {
@@ -161,14 +177,35 @@ function pdfPlan(m, w) {
   return { cols, pages: Math.max(...cols.map(c => c.breaks.length - 1)) };
 }
 
-// Narrowest width (largest text) that needs the fewest pages.
-function pdfChooseWidth(preview) {
-  let best = null;
-  for (const w of PDF_WIDTHS) {
-    const pages = pdfPlan(pdfMeasureLive(preview, w), w).pages;
-    if (!best || pages < best.pages) best = { w, pages };
+// The most comfortable layout (largest text, most space) that reaches the
+// fewest pages any layout can: one page whenever the CV can fit on one.
+function pdfChooseLayout(preview) {
+  const tried = PDF_LAYOUTS.map(l => ({ ...l, pages: pdfPlan(pdfMeasureLive(preview, l.w, l.tight), l.w).pages }));
+  const fewest = Math.min(...tried.map(t => t.pages));
+  return tried.find(t => t.pages === fewest);
+}
+
+// Years of work experience (overlapping jobs counted once) and number of
+// jobs, for the Europass length advice: 1 page, or 2 for a long career.
+function pdfExperienceSummary(data) {
+  const toMonth = (s) => {
+    const m = /^(\d{4})-(\d{2})$/.exec(s || '');
+    return m ? (+m[1]) * 12 + (+m[2] - 1) : null;
+  };
+  const now = new Date();
+  const nowM = now.getFullYear() * 12 + now.getMonth();
+  const jobs = (data.experiences || []).filter(e => e.title || e.organization);
+  const spans = jobs
+    .map(e => [toMonth(e.startDate), e.current ? nowM : (toMonth(e.endDate) ?? nowM)])
+    .filter(([a, b]) => a !== null && b >= a)
+    .sort((x, y) => x[0] - y[0]);
+  let months = 0, curA = null, curB = null;
+  for (const [a, b] of spans) {
+    if (curB === null || a > curB) { if (curB !== null) months += curB - curA; curA = a; curB = b; }
+    else curB = Math.max(curB, b);
   }
-  return best.w;
+  if (curB !== null) months += curB - curA;
+  return { years: months / 12, jobs: jobs.length };
 }
 
 async function exportPDF() {
@@ -196,9 +233,10 @@ async function exportPDF() {
     // Fonts must be ready, or the canvas uses a fallback font.
     if (document.fonts?.ready) await document.fonts.ready;
 
-    const W = pdfChooseWidth(preview);
+    const layout = pdfChooseLayout(preview);
+    const W = layout.w;
     const PAGE_H = pdfPageH(W);
-    const estH = pdfMeasureLive(preview, W).totalH;
+    const estH = pdfMeasureLive(preview, W, layout.tight).totalH;
     const renderScale = Math.min(PDF_TARGET_PX / W, Math.sqrt(PDF_MAX_CANVAS_PIXELS / (W * estH * 1.05)));
 
     let measured = null;
@@ -214,7 +252,7 @@ async function exportPDF() {
         host.style.cssText = `position:absolute;left:0;top:0;width:${W}px;background:#fff;z-index:99999`;
         doc.body.appendChild(host);
         host.appendChild(el);
-        pdfStyleResume(el, W);
+        pdfStyleResume(el, W, layout.tight);
         pdfBalance(el);
         measured = pdfMeasure(el, W); // measured where it is drawn, so breaks match exactly
         try { measured.text = pdfCollectText(el); } catch (e) { measured.text = []; }
@@ -309,7 +347,18 @@ async function exportPDF() {
       ? exportFileBase(data.personal || {})
       : ([data.personal?.firstname, data.personal?.lastname].filter(Boolean).join('-') || 'My') + '-Resume';
     pdf.save(`${fileName}.pdf`);
-    showToast('✅ PDF downloaded!', 'success');
+
+    // Europass length advice: 1 page, 2 at most for long careers.
+    const exp = pdfExperienceSummary(data);
+    if (pages === 1) {
+      showToast('✅ PDF downloaded (1 page)', 'success');
+    } else if (pages === 2 && (exp.years >= 10 || exp.jobs > 1)) {
+      showToast('✅ PDF downloaded (2 pages)', 'success');
+    } else if (pages === 2) {
+      showToast('PDF downloaded on 2 pages. Europass advises 1 page with less than 10 years of experience: shorten a few descriptions to fit.', 'info');
+    } else {
+      showToast(`PDF downloaded on ${pages} pages. Europass CVs should be 2 pages at most: shorten descriptions or remove older entries.`, 'info');
+    }
 
   } catch (err) {
     console.error('PDF export failed:', err);

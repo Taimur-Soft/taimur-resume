@@ -461,6 +461,38 @@ function sanitizeResumeData(raw) {
 }
 
 // ── RESUME HTML BUILDER ────────────────────────────────
+// ── TIMELINE: SECTIONS SIDE BY SIDE IN A COMPACT PDF ────
+// The timeline layout stacks its short closing sections (skills, languages,
+// projects...) across the full width. When the PDF has to be compacted to
+// fit fewer pages (.pdf-tight-*, see pdf-export.js), they are set in two
+// columns instead: the first sections on the left, the rest on the right,
+// split where the two columns come out most even, so the order stays.
+function splitTimelineExtras(root) {
+  const extras = root?.querySelector('.rv-eu-timeline .eu-tl-extras');
+  if (!extras) return;
+  // Undo an earlier split (made for another width or level).
+  extras.querySelectorAll(':scope > .eu-tl-col').forEach(col => col.replaceWith(...col.children));
+  extras.classList.remove('is-split');
+  const sections = [...extras.children];
+  if (sections.length < 2 || !root.matches('.pdf-tight-1, .pdf-tight-2')) return;
+
+  const left = extras.ownerDocument.createElement('div'); // the PDF's copy lives in another document
+  const right = extras.ownerDocument.createElement('div');
+  left.className = right.className = 'eu-tl-col';
+  extras.classList.add('is-split');
+  extras.append(left, right);
+  const colH = (col) => col.getBoundingClientRect().height;
+  let best = null;
+  for (let k = 1; k < sections.length; k++) {
+    left.append(...sections.slice(0, k));
+    right.append(...sections.slice(k));
+    const h = Math.max(colH(left), colH(right));
+    if (!best || h < best.h) best = { k, h };
+  }
+  left.append(...sections.slice(0, best.k));
+  right.append(...sections.slice(best.k));
+}
+
 // ── COLUMN BALANCING ───────────────────────────────────
 // Two-column templates put each section in a fixed column, so one column
 // could run onto a second page while the other stays half empty. After the
@@ -486,6 +518,7 @@ const COLUMN_MOVES = {
 };
 
 function balanceResumeColumns(root) {
+  splitTimelineExtras(root);
   const layout = root?.querySelector('.rv-eu-sidebar, .rv-eu-banner');
   if (!layout) return;
   const isSidebar = layout.classList.contains('rv-eu-sidebar');
@@ -797,7 +830,7 @@ function buildResumeHTML(rawData) {
       </div>
       ${aboutMeHTML}
       <div class="eu-tl-track">${workExperienceHTML}${educationHTML}</div>
-      ${skillsTagsHTML}${languagesHTML}${projectsHTML}${achievementsHTML}${customHTML}
+      <div class="eu-tl-extras">${skillsTagsHTML}${languagesHTML}${projectsHTML}${achievementsHTML}${customHTML}</div>
     </div>`;
 }
 
