@@ -81,6 +81,52 @@ function pdfMeasure(el, w) {
   return { totalH: er.height, headerH, columns };
 }
 
+// Every line of text with its exact box (CSS px from the resume's top
+// left), so the PDF can put real, selectable text right over the picture
+// of it. Words that sit on the same line in the same text node are joined.
+function pdfCollectText(el) {
+  const doc = el.ownerDocument;
+  const win = doc.defaultView;
+  const er = el.getBoundingClientRect();
+  const range = doc.createRange();
+  const walker = doc.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const out = [];
+  let node;
+  while ((node = walker.nextNode())) {
+    const text = node.nodeValue;
+    if (!text || !text.trim() || !node.parentElement) continue;
+    const fs = parseFloat(win.getComputedStyle(node.parentElement).fontSize) || 11;
+    const re = /\S+/g;
+    let m;
+    let line = null;
+    while ((m = re.exec(text))) {
+      range.setStart(node, m.index);
+      range.setEnd(node, m.index + m[0].length);
+      const r = [...range.getClientRects()].find(b => b.width > 0 && b.height > 0);
+      if (!r) continue;
+      const word = { t: m[0], x: r.left - er.left, y: r.top - er.top, w: r.width, h: r.height, fs };
+      if (line && Math.abs(line.y - word.y) < 1.5 && word.x >= line.x + line.w - 1) {
+        line.t += ' ' + word.t;
+        line.w = word.x + word.w - line.x;
+        line.h = Math.max(line.h, word.h);
+      } else {
+        if (line) out.push(line);
+        line = word;
+      }
+    }
+    if (line) out.push(line);
+  }
+  return out;
+}
+
+// The built-in PDF font covers Latin-1 only: swap common symbols, drop the
+// rest (e.g. Bangla still shows in the picture, it just can't be selected).
+function pdfLatin1(s) {
+  return s
+    .replace(/[–—]/g, '-').replace(/[•·]/g, '-').replace(/[‘’]/g, "'").replace(/[“”]/g, '"')
+    .replace(/↗/g, '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '').trim();
+}
+
 // Measures the resume at width w without drawing anything.
 function pdfMeasureLive(preview, w) {
   const host = document.createElement('div');
@@ -160,6 +206,7 @@ async function exportPDF() {
         host.appendChild(el);
         pdfStyleResume(el, W);
         measured = pdfMeasure(el, W); // measured where it is drawn, so breaks match exactly
+        try { measured.text = pdfCollectText(el); } catch (e) { measured.text = []; }
       }
     });
 
@@ -234,7 +281,10 @@ async function exportPDF() {
       pdf.setTextColor(0, 0, 0);
     }
 
-    addPdfTextLayer(pdf, data);
+    // Selectable text exactly over the words in the picture; the old
+    // single block of hidden text is only a fallback.
+    const placed = addAlignedTextLayer(pdf, measured, cols, W);
+    if (!placed) addPdfTextLayer(pdf, data);
     pdf.setProperties({
       title: name ? `${name} — Resume` : 'Resume',
       author: name || '',
@@ -294,8 +344,61 @@ function pdfColumnBreaks(contentH, lines, items, firstRoom, nextRoom) {
   return breaks;
 }
 
+// Puts each line of text, invisible, exactly where the picture shows it:
+// same page, position, height and width. Selecting in a PDF viewer then
+// highlights the right words; copy, search (Ctrl+F) and ATS systems read
+// real text. This is how searchable scanned PDFs work. Returns how many
+// lines were placed.
+function addAlignedTextLayer(pdf, measured, cols, W) {
+  const segs = measured?.text || [];
+  if (!segs.length) return 0;
+  const k = pdf.internal.pageSize.getWidth() / W; // mm per CSS px
+  const bandH = measured.headerH || 0;
+  const PT_PER_MM = 72 / 25.4;
+  pdf.setFont('helvetica', 'normal');
+  let placed = 0;
+
+  // Which page a piece of text lands on, and where (CSS px on that page).
+  const locate = (s) => {
+    const mid = s.y + s.h / 2;
+    if (bandH && mid < bandH) return { page: 0, x: s.x, y: s.y };
+    const c = cols.find(col => s.x + 1 >= col.x0 && s.x < col.x1 && mid >= col.top) || cols[0];
+    const cy = s.y - c.top;
+    const cmid = mid - c.top;
+    for (let n = 0; n < c.breaks.length - 1; n++) {
+      if (cmid >= c.breaks[n].y && cmid < c.breaks[n + 1].y) {
+        const startY = n === 0 ? (c.top || bandH) : PDF_CONT_TOP;
+        return { page: n, x: s.x, y: startY + (cy - c.breaks[n].y) };
+      }
+    }
+    return null;
+  };
+
+  for (const s of segs) {
+    const t = pdfLatin1(s.t);
+    if (!t) continue;
+    const at = locate(s);
+    if (!at) continue;
+    const sizePt = s.fs * k * PT_PER_MM;
+    if (sizePt < 2) continue;
+    pdf.setPage(at.page + 1);
+    pdf.setFontSize(sizePt);
+    const natural = pdf.getTextWidth(t);
+    if (!natural) continue;
+    // Baseline sits about 78% down the line box.
+    pdf.text(t, at.x * k, (at.y + s.h * 0.78) * k, {
+      renderingMode: 'invisible',
+      horizontalScale: Math.max(0.3, Math.min(3, (s.w * k) / natural))
+    });
+    placed++;
+  }
+  pdf.setPage(pdf.internal.getNumberOfPages());
+  return placed;
+}
+
 // Invisible text with the resume's words (same text as Export → Plain text),
 // so the PDF can be searched, copied and read by applicant tracking systems.
+// Used only if the aligned layer above couldn't be built.
 function addPdfTextLayer(pdf, data) {
   if (typeof buildResumeText !== 'function') return;
   let text;
