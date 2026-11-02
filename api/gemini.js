@@ -16,7 +16,9 @@ const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_pub
 const DAILY_LIMIT = Math.max(1, parseInt(process.env.AI_DAILY_LIMIT || '30', 10) || 30);
 
 const MAIN_MODEL = 'gemini-flash-latest';
-const FALLBACK_MODEL = 'gemini-2.5-flash-lite';
+// Lighter, faster models, tried in order. Google retires old ones for new
+// keys (a 404 says so), so the next in the list is tried automatically.
+const FALLBACK_MODELS = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite'];
 const RETRY_DELAYS_MS = [1000, 3000];
 const MAX_PROMPT_CHARS = 20000;
 
@@ -127,7 +129,15 @@ function generate(request, apiKey, log) {
       if (fallbackStarted || finished) return;
       fallbackStarted = true;
       pending++;
-      callGemini(FALLBACK_MODEL, withoutThinking(request), apiKey, left(), log, all.signal).then(finish);
+      (async () => {
+        let r;
+        for (const model of FALLBACK_MODELS) {
+          r = await callGemini(model, withoutThinking(request), apiKey, left(), log, all.signal);
+          // 404 = this model isn't available to this key; try the next one.
+          if (r.status !== 404 || all.signal.aborted) break;
+        }
+        return r;
+      })().then(finish);
     };
 
     const runMain = async () => {

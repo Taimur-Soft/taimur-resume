@@ -216,7 +216,9 @@ async function checkGrammar(text) {
 // gemini-1.5-flash was). If it stays overloaded, fall back to a smaller
 // model, which usually has spare capacity.
 const GEMINI_MODEL = 'gemini-flash-latest';
-const GEMINI_FALLBACK_MODEL = 'gemini-2.5-flash-lite';
+// Tried in order; Google retires old models for new keys (404), so the
+// next one is used automatically.
+const GEMINI_FALLBACK_MODELS = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite'];
 
 // Waits before each retry of the same model (exponential backoff, as
 // Google's troubleshooting guide recommends for 429 / 5xx errors).
@@ -335,14 +337,18 @@ async function callGeminiWithRetry(body, apiKey, onStatus = () => {}) {
     }
   }
   onStatus('Gemini is still busy, trying a lighter model...');
-  try {
-    return await callGemini(GEMINI_FALLBACK_MODEL, withoutThinkingConfig(body), apiKey);
-  } catch (e) {
-    // Report the main model's error: the key already worked there, so a
-    // fallback-only failure (e.g. that model isn't enabled for this key)
-    // shouldn't be shown as "your key is wrong".
-    throw lastError;
+  for (const model of GEMINI_FALLBACK_MODELS) {
+    try {
+      return await callGemini(model, withoutThinkingConfig(body), apiKey);
+    } catch (e) {
+      // 404: this model isn't available to this key, try the next one.
+      if (e.status !== 404) break;
+    }
   }
+  // Report the main model's error: the key already worked there, so a
+  // fallback-only failure (e.g. that model isn't enabled for this key)
+  // shouldn't be shown as "your key is wrong".
+  throw lastError;
 }
 
 // A hint that matches what actually went wrong, instead of always blaming the key.
