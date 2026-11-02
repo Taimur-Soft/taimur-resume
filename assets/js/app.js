@@ -1507,6 +1507,8 @@ function restoreFromData(data) {
 // happens in the cloud, tied to a signed-in account (see auth.js).
 
 // ── PRINT ──────────────────────────────────────────────
+// No button of its own any more; pdf-export.js uses it as the fallback
+// when building the PDF fails.
 function printCV() {
   window.print();
 }
