@@ -44,7 +44,8 @@ A free, browser-based resume builder with a live preview, 15 Europass-format tem
 - **PDF download** as paginated A4 (html2canvas + jsPDF), with browser print as a fallback.
 - **Import from PDF, Word (.docx) or JSON.** PDF and Word text is read in the browser (pdf.js, mammoth.js, loaded only when needed); Gemini sorts it into the builder's sections using only what the file says, and a preview shows what was found before it opens as a new resume. JSON accepts a single exported resume or a full account backup.
 - **Export menu:** Word (.docx, clean ATS-friendly layout), plain text, **Europass XML** (SkillsPassport V3.3, for the Europass portal), a stand-alone web page with the chosen template's design, and a JSON backup. Built in the browser (JSZip for Word, loaded only when needed).
-- **Shareable link and QR code.** The resume is compressed into the URL itself (lz-string), so no server stores shared resumes. The link is shortened through a small serverless function.
+- **Private share links.** Signed-in users get a short link (`view.html?r=CODE`) stored in their own Supabase (`supabase/share.sql`): it always shows the latest version, counts views, can hide phone and address, and can be turned off. Signed out, the resume (without the photo) is packed into the link itself with lz-string.
+- **Styled QR code** in the template's colour with the person's initials in the middle, verified to scan, downloadable as a print-ready PNG; one-click sharing to WhatsApp, LinkedIn, email and Telegram, plus the phone's own share menu.
 
 ---
 
@@ -94,7 +95,8 @@ Most of the app runs in the browser. The server code is two small functions:
 │   └── shorten.js          Serverless URL shortener (is.gd proxy)
 ├── supabase/
 │   ├── ai-usage.sql        Daily AI usage counter (run once in Supabase)
-│   └── account.sql         AI usage lookup and "delete my account" (run once)
+│   ├── account.sql         AI usage lookup and "delete my account" (run once)
+│   └── share.sql           Short private share links (run once)
 ├── assets/
 │   ├── css/main.css        App and template styles
 │   └── js/
@@ -151,6 +153,10 @@ Without these, the AI tools still work for anyone who adds their own key.
 
 Run `supabase/account.sql` once in the SQL Editor (after `ai-usage.sql`). It adds "AI usage today" and the GDPR "Delete my account" option to Account Settings.
 
+### Share links (optional)
+
+Run `supabase/share.sql` once in the SQL Editor. Until then, sharing falls back to links that carry the resume (without the photo).
+
 ---
 
 ## Security and privacy
@@ -159,7 +165,7 @@ Run `supabase/account.sql` once in the SQL Editor (after `ai-usage.sql`). It add
 - **No leftover local data.** Resumes are never kept in `localStorage`; signed-out sessions start blank, and data from older versions is purged on load.
 - **Keys stay secret.** The site's Gemini key exists only as a Vercel environment variable and never reaches the browser. A user's own key is stored only in their browser and sent only to Google.
 - **No contact details sent to AI.** Email and phone number are left out of everything sent to LanguageTool and Gemini.
-- **Shared links are self-contained.** The resume lives in the link itself, not on a server.
+- **Share links stay private.** Short links live in the owner's own database; visitors can only read a resume through a function that checks the link is still active (Row Level Security keeps the table itself closed). No third party receives the resume, except the URL shortener in the rare signed-out case where a link is too long for a QR code.
 
 ---
 

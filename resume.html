@@ -460,18 +460,54 @@
 
       <!-- Share Modal -->
       <div id="shareModal" class="share-modal" style="display:none">
-        <div class="share-modal-content">
-          <button onclick="closeShareModal()" class="btn-close">×</button>
-          <h4><i class="fas fa-share-alt"></i> Share Your Resume</h4>
-          <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Anyone with this link can view your resume</p>
-          <div class="share-url-row">
-            <input type="text" id="shareUrl" readonly class="form-input" placeholder="Generating link...">
-            <button onclick="copyShareUrl()" class="btn-icon" title="Copy link">
-              <i class="fas fa-copy"></i>
-            </button>
+        <div class="share-modal-content share-pro" role="dialog" aria-modal="true" aria-labelledby="shareTitle">
+          <button onclick="closeShareModal()" class="btn-close" aria-label="Close">×</button>
+          <h4 id="shareTitle"><i class="fas fa-share-nodes"></i> Share your resume</h4>
+          <p id="shareSub" class="hint-text share-sub"></p>
+
+          <div id="shareLoading" class="ai-loading"><i class="fas fa-spinner fa-spin"></i><span>Creating your link...</span></div>
+          <div id="shareError" class="tone-error" hidden><span id="shareErrorText"></span></div>
+          <div id="shareStopped" class="share-stopped" hidden>
+            <i class="fas fa-link-slash"></i>
+            <p><strong>Link turned off.</strong> Anyone who opens it now sees that it no longer exists.</p>
+            <button type="button" class="btn-primary" onclick="shareResume()"><i class="fas fa-link"></i> Create a new link</button>
           </div>
-          <div id="qrContainer" style="margin:16px 0;display:flex;justify-content:center"></div>
-          <p style="font-size:11px;color:var(--text-muted);text-align:center">Scan QR code to open on mobile</p>
+
+          <div id="shareReady" hidden>
+            <div id="shareQrCard" class="share-qr-card">
+              <canvas id="shareQrCanvas" width="640" height="640" aria-label="QR code for your resume link" role="img"></canvas>
+              <span class="share-qr-caption"><i class="fas fa-mobile-screen"></i> Scan to open on a phone</span>
+            </div>
+
+            <div class="share-url-row">
+              <input type="text" id="shareUrl" readonly class="form-input" aria-label="Share link" onfocus="this.select()">
+              <button id="shareCopyBtn" onclick="copyShareUrl()" class="btn-primary share-copy-btn" title="Copy link"><i class="fas fa-copy"></i> Copy</button>
+            </div>
+
+            <div class="share-targets" aria-label="Share to">
+              <button type="button" class="share-target st-whatsapp" onclick="shareTo('whatsapp')" title="Share on WhatsApp"><i class="fab fa-whatsapp"></i><span>WhatsApp</span></button>
+              <button type="button" class="share-target st-linkedin" onclick="shareTo('linkedin')" title="Share on LinkedIn"><i class="fab fa-linkedin-in"></i><span>LinkedIn</span></button>
+              <button type="button" class="share-target st-email" onclick="shareTo('email')" title="Send by email"><i class="fas fa-envelope"></i><span>Email</span></button>
+              <button type="button" class="share-target st-telegram" onclick="shareTo('telegram')" title="Share on Telegram"><i class="fab fa-telegram"></i><span>Telegram</span></button>
+              <button type="button" id="shareNativeBtn" class="share-target st-more" onclick="shareTo('native')" title="More options" hidden><i class="fas fa-ellipsis"></i><span>More</span></button>
+            </div>
+
+            <button type="button" id="shareQrDownload" class="btn-icon share-wide-btn" onclick="downloadShareQR()"><i class="fas fa-qrcode"></i> Download QR code (print-ready PNG)</button>
+
+            <div id="shareLiveBox" class="share-live-box" hidden>
+              <div class="share-live-row">
+                <span class="share-live-badge"><span class="share-dot"></span> Live link</span>
+                <span class="share-views"><i class="fas fa-eye"></i> <span id="shareViews">0 views</span></span>
+              </div>
+              <label class="share-switch">
+                <input type="checkbox" id="shareHideContact" onchange="setShareHideContact(this.checked)">
+                <span class="share-switch-track" aria-hidden="true"></span>
+                <span>Hide my phone number and address on the shared page</span>
+              </label>
+              <button type="button" id="shareStopBtn" class="share-stop-btn" onclick="stopSharing()"><i class="fas fa-link-slash"></i> Stop sharing this link</button>
+            </div>
+            <p id="sharePackedNote" class="share-packed-note" hidden></p>
+          </div>
         </div>
       </div>
 
@@ -755,7 +791,7 @@
 
   <!-- Scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>

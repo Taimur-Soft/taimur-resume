@@ -68,29 +68,62 @@
   <script src="assets/js/app.js"></script>
   <script src="assets/js/resume-export.js"></script>
   <script src="assets/js/pdf-export.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-config.js"></script>
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    function showViewMessage(icon, title, text) {
+      document.getElementById('viewContent').innerHTML = `
+        <div class="view-error">
+          <i class="fas ${icon}"></i>
+          <h2>${title}</h2>
+          <p>${text}<br>
+          <a href="resume.html">Create your own resume →</a></p>
+        </div>`;
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const code = new URLSearchParams(window.location.search).get('r');
       const hash = window.location.hash.slice(1);
 
+      // Short link (view.html?r=CODE): the resume's latest version, from
+      // the owner's account. See supabase/share.sql.
+      if (code) {
+        if (!/^[A-Za-z0-9]{8,16}$/.test(code)) {
+          showViewMessage('fa-link-slash', 'Link not found', 'This share link isn\'t valid.');
+          return;
+        }
+        try {
+          const { data, error } = await supabaseClient.rpc('get_shared_resume', { share_id: code });
+          if (error) throw error;
+          if (!data) {
+            showViewMessage('fa-link-slash', 'This link is no longer active', 'The owner has turned it off, or it doesn\'t exist.');
+            return;
+          }
+          renderViewedResume(data);
+        } catch (e) {
+          showViewMessage('fa-triangle-exclamation', 'Could not load resume', 'Please check your internet connection and try again.');
+        }
+        return;
+      }
+
       if (!hash) {
-        document.getElementById('viewContent').innerHTML = `
-          <div class="view-error">
-            <i class="fas fa-exclamation-circle"></i>
-            <h2>No Resume Found</h2>
-            <p>This link doesn't contain resume data.<br>
-            <a href="resume.html">Create your own resume →</a></p>
-          </div>`;
+        showViewMessage('fa-exclamation-circle', 'No Resume Found', 'This link doesn\'t contain resume data.');
         return;
       }
 
       try {
         const json = LZString.decompressFromEncodedURIComponent(hash);
         const data = JSON.parse(json);
-
         if (!data) throw new Error('Invalid data');
+        renderViewedResume(data);
+      } catch (e) {
+        showViewMessage('fa-exclamation-triangle', 'Could not load resume', 'The link may be invalid or expired.');
+      }
+    });
 
+    function renderViewedResume(data) {
         // Set up template
-        currentTemplate = data.template || 'aurora';
+        currentTemplate = /^[a-z]+$/.test(data.template || '') ? data.template : 'aurora';
 
         // Build preview element
         const previewDiv = document.createElement('div');
@@ -106,17 +139,7 @@
         // Update page title
         const name = [data.personal?.firstname, data.personal?.lastname].filter(Boolean).join(' ');
         if (name) document.title = `${name} — Resume`;
-
-      } catch (e) {
-        document.getElementById('viewContent').innerHTML = `
-          <div class="view-error">
-            <i class="fas fa-exclamation-triangle"></i>
-            <h2>Could not load resume</h2>
-            <p>The link may be invalid or expired.<br>
-            <a href="resume.html">Create a new resume →</a></p>
-          </div>`;
-      }
-    });
+    }
   </script>
 
 </body>
