@@ -153,6 +153,10 @@ Without these, the AI tools still work for anyone who adds their own key.
 
 Run `supabase/account.sql` once in the SQL Editor (after `ai-usage.sql`). It adds "AI usage today" and the GDPR "Delete my account" option to Account Settings.
 
+### Sign-up check (optional)
+
+Run `supabase/auth.sql` once. Sign-up then tells people when an email already has an account (and offers Sign in / Reset password) instead of emailing a code.
+
 ### Share links (optional)
 
 Run `supabase/share.sql` once in the SQL Editor. Until then, sharing falls back to links that carry the resume (without the photo).

@@ -1244,7 +1244,7 @@ function setAuthFlow(flow) {
     : '<i class="fas fa-user-plus"></i> Create Account';
   document.getElementById('authEmailHint').textContent = reset
     ? 'Enter the email of your account. We\'ll send you a code to set a new password.'
-    : 'We\'ll email you a short code to confirm it\'s you. (If this email already has an account, you\'ll set a new password for it.)';
+    : 'We\'ll email you a short code to confirm it\'s you.';
   document.getElementById('authEmailBackText').textContent = reset ? 'Remembered it?' : 'Already have an account?';
   document.getElementById('authPasswordTitle').innerHTML = reset
     ? '<i class="fas fa-lock"></i> Choose a New Password'
@@ -1332,6 +1332,38 @@ async function handleSignupEmailSubmit(event) {
   errorEl.style.display = 'none';
 
   try {
+    // Sign up with an email that already has an account: say so and point
+    // to Sign in / Reset, instead of emailing a code (supabase/auth.sql).
+    if (authFlow === 'signup') {
+      const { data: exists, error: checkError } = await supabaseClient.rpc('email_registered', { check_email: email });
+      if (!checkError && exists === true) {
+        errorEl.style.color = 'var(--danger)';
+        errorEl.innerHTML = '';
+        errorEl.append('An account with this email already exists. ');
+        const signIn = document.createElement('a');
+        signIn.href = '#';
+        signIn.textContent = 'Sign in';
+        signIn.onclick = (e) => {
+          e.preventDefault();
+          showAuthStep('signin');
+          document.getElementById('signinEmail').value = email;
+          document.getElementById('signinPassword').focus();
+        };
+        const reset = document.createElement('a');
+        reset.href = '#';
+        reset.textContent = 'reset your password';
+        reset.onclick = (e) => {
+          e.preventDefault();
+          setAuthFlow('reset');
+          document.getElementById('signupEmail').value = email;
+          document.getElementById('signupEmailError').style.display = 'none';
+        };
+        errorEl.append(signIn, ' instead, or ', reset, ' if you forgot it.');
+        errorEl.style.display = 'block';
+        return;
+      }
+      // If the check isn't set up yet (or fails), sign-up still works as before.
+    }
     await authSendSignupCode(email, { create: authFlow !== 'reset' });
     pendingSignupEmail = email;
     resendCodeCooldownUntil = Date.now() + 30000;
