@@ -588,6 +588,14 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 .rv-eu-sidebar .eu-skill-bar { height: 4px; background: rgba(255,255,255,0.28); border-radius: 99px; }
 .rv-eu-sidebar .eu-skill-fill { height: 100%; background: var(--eu-skill-fill, rgba(255,255,255,0.9)); border-radius: 99px; }
 .rv-eu-sidebar .eu-main { padding: 24px 20px; background: var(--eu-surface, #fff); }
+/* Sections moved into the sidebar to balance the columns (app.js) take the
+   sidebar's own colours, so they stay readable on a dark sidebar too. */
+.rv-eu-sidebar .eu-side .eu-item { text-align: left; }
+.rv-eu-sidebar .eu-side .eu-item-head strong { color: inherit; font-size: 10.5px; }
+.rv-eu-sidebar .eu-side .eu-date,
+.rv-eu-sidebar .eu-side .eu-item-sub,
+.rv-eu-sidebar .eu-side .eu-item-desc,
+.rv-eu-sidebar .eu-side .eu-link { color: inherit; opacity: 0.82; }
 
 /* Each template's own accent (headings, rules, links, timeline markers).
    Picked to match the template's main colour and stay readable on white. */

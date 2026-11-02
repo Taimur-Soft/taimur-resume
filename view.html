@@ -148,6 +148,7 @@
 
         document.getElementById('viewContent').innerHTML = '';
         document.getElementById('viewContent').appendChild(previewDiv);
+        if (typeof balanceResumeColumns === 'function') balanceResumeColumns(previewDiv);
         window.__viewedResumeData = data; // used by pdf-export.js for the filename
 
         // Update page title

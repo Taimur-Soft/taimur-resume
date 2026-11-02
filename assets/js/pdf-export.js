@@ -41,6 +41,13 @@ function pdfStyleResume(el, w) {
   });
 }
 
+// Two-column templates: share the sections out between the columns again at
+// the PDF's width (app.js), so neither column ends up empty on a page while
+// the other runs on.
+function pdfBalance(el) {
+  if (typeof balanceResumeColumns === 'function') balanceResumeColumns(el);
+}
+
 // Layout facts, in CSS px from the top of the resume:
 // { totalH, headerH, columns: [{ x0, x1, top, contentH, lines, items }] }
 // headerH is a full-width band that only appears on page 1 (the banner).
@@ -136,7 +143,10 @@ function pdfMeasureLive(preview, w) {
   pdfStyleResume(el, w);
   host.appendChild(el);
   document.body.appendChild(host);
-  try { return pdfMeasure(el, w); } finally { host.remove(); }
+  try {
+    pdfBalance(el);
+    return pdfMeasure(el, w);
+  } finally { host.remove(); }
 }
 
 // Page breaks for every column; the document has as many pages as its
@@ -205,6 +215,7 @@ async function exportPDF() {
         doc.body.appendChild(host);
         host.appendChild(el);
         pdfStyleResume(el, W);
+        pdfBalance(el);
         measured = pdfMeasure(el, W); // measured where it is drawn, so breaks match exactly
         try { measured.text = pdfCollectText(el); } catch (e) { measured.text = []; }
       }

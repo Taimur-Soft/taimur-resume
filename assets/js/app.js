@@ -167,6 +167,7 @@ function renderCV() {
   if (empty) empty.style.display = 'none';
 
   preview.innerHTML = buildResumeHTML(data);
+  balanceResumeColumns(preview);
 
   calculateProgress();
   pushHistory();
@@ -460,6 +461,80 @@ function sanitizeResumeData(raw) {
 }
 
 // ── RESUME HTML BUILDER ────────────────────────────────
+// ── COLUMN BALANCING ───────────────────────────────────
+// Two-column templates put each section in a fixed column, so one column
+// could run onto a second page while the other stays half empty. After the
+// layout is drawn, this moves whole sections from the end of the longer
+// column to the end of the shorter one, one at a time, as long as each move
+// makes the resume shorter. It runs again at the PDF's own width, so the
+// preview and the PDF both end up balanced. Single-column (timeline)
+// templates are left alone.
+const COLUMN_MOVES = {
+  sidebar: { main: '.eu-main', side: '.eu-side', toSide: ['projects', 'achievements', 'custom'], toMain: [] },
+  banner: { main: '.eu-main', side: '.eu-side-col', toSide: ['projects'], toMain: ['education', 'achievements', 'custom'] }
+};
+
+function balanceResumeColumns(root) {
+  const layout = root?.querySelector('.rv-eu-sidebar, .rv-eu-banner');
+  if (!layout) return;
+  const isSidebar = layout.classList.contains('rv-eu-sidebar');
+  const cfg = COLUMN_MOVES[isSidebar ? 'sidebar' : 'banner'];
+  const cols = { main: layout.querySelector(cfg.main), side: layout.querySelector(cfg.side) };
+  if (!cols.main || !cols.side) return;
+
+  // Remember where each section belongs, then put back any that an earlier
+  // run (for another width) moved, so balancing always starts fresh.
+  for (const [name, col] of Object.entries(cols)) {
+    [...col.children].forEach((el, i) => {
+      if (el.dataset.sec && !el.dataset.home) { el.dataset.home = name; el.dataset.pos = i; }
+    });
+  }
+  [...layout.querySelectorAll('[data-sec][data-moved]')]
+    .sort((a, b) => a.dataset.pos - b.dataset.pos)
+    .forEach(sec => {
+      const home = cols[sec.dataset.home];
+      home.insertBefore(sec, home.children[+sec.dataset.pos] || null);
+      delete sec.dataset.moved;
+      if (isSidebar) sec.classList.remove('eu-side-section');
+    });
+
+  // How tall the column's own content is (columns stretch to match each other).
+  const contentH = (col) => {
+    const top = col.getBoundingClientRect().top;
+    return Math.max(0, ...[...col.children].map(c => c.getBoundingClientRect().bottom - top));
+  };
+  const place = (sec, to) => {
+    const after = [...to.children].find(c => c.dataset.moved && +c.dataset.ord > +sec.dataset.ord);
+    to.insertBefore(sec, after || null);
+    sec.dataset.moved = '1';
+    if (isSidebar) sec.classList.toggle('eu-side-section', to === cols.side);
+  };
+
+  for (let guard = 0; guard < 8; guard++) {
+    const hMain = contentH(cols.main);
+    const hSide = contentH(cols.side);
+    if (!hMain && !hSide) return; // not on screen (e.g. hidden panel)
+    const fromMain = hMain > hSide;
+    const from = fromMain ? cols.main : cols.side;
+    const to = fromMain ? cols.side : cols.main;
+    const allowed = fromMain ? cfg.toSide : cfg.toMain;
+    // Only the last movable section, so the column keeps its reading order.
+    const sec = [...from.children].filter(c => allowed.includes(c.dataset.sec)).pop();
+    if (!sec) return;
+    const before = Math.max(hMain, hSide);
+    const next = sec.nextElementSibling;
+    const wasMoved = sec.dataset.moved;
+    place(sec, to);
+    if (Math.max(contentH(cols.main), contentH(cols.side)) > before - 4) {
+      // No real gain: undo this move and stop.
+      from.insertBefore(sec, next);
+      if (wasMoved) sec.dataset.moved = wasMoved; else delete sec.dataset.moved;
+      if (isSidebar) sec.classList.toggle('eu-side-section', from === cols.side);
+      return;
+    }
+  }
+}
+
 function buildResumeHTML(rawData) {
   const data = sanitizeResumeData(rawData);
   const { personal, experiences, educations, skills, projects, achievements, languages, customSections } = data;
@@ -523,6 +598,10 @@ function buildResumeHTML(rawData) {
       ${desc ? `<p class="eu-item-desc">${desc.replace(/\n/g, '<br>')}</p>` : ''}
     </div>`;
 
+  // Names a section and its place in the page order, so balanceResumeColumns()
+  // can move it to the other column and slot it back in the right spot.
+  const tagSection = (html, key, ord) => html.replace('<div class="eu-section">', `<div class="eu-section" data-sec="${key}" data-ord="${ord}">`);
+
   const expItems = experiences.filter(e => e.title || e.organization);
   const eduItems = educations.filter(e => e.school || e.degree);
   const projItems = projects.filter(p => p.title);
@@ -578,11 +657,11 @@ function buildResumeHTML(rawData) {
       <p class="eu-lang-note">CEFR levels: A1–A2 basic user · B1–B2 independent user · C1–C2 proficient user</p>` : ''}
     </div>` : '';
 
-  const customHTML = customSections.map(cs => cs.items.filter(i => i.title).length > 0 ? `
+  const customHTML = customSections.map((cs, n) => cs.items.filter(i => i.title).length > 0 ? tagSection(`
     <div class="eu-section">
       <h3><i class="fas fa-star"></i> ${cs.name}</h3>
       ${cs.items.filter(i => i.title).map(i => euItem({ title: i.title, desc: i.description })).join('')}
-    </div>` : '').join('');
+    </div>`, 'custom', 70 + n) : '').join('');
 
   const aboutMeHTML = personal.summary ? `
     <div class="eu-section">
@@ -606,6 +685,10 @@ function buildResumeHTML(rawData) {
       <div class="eu-skill-tags">${skills.map(s => `<span class="eu-skill-tag">${s.skill}</span>`).join('')}</div>
     </div>` : '';
 
+  const educationSec = tagSection(educationHTML, 'education', 30);
+  const projectsSec = tagSection(projectsHTML, 'projects', 50);
+  const achievementsSec = tagSection(achievementsHTML, 'achievements', 60);
+
   const contactHTML = contactList.map(c => `<div class="eu-contact-item"><i class="fas ${c.icon}"></i><span>${c.text}</span></div>`).join('');
   const contactInlineHTML = contactList.map(c => `<span class="eu-contact-inline"><i class="fas ${c.icon}"></i>${c.text}</span>`).join('');
   const photoHTML = personal.image ? `<img src="${personal.image}" class="eu-photo" alt="Photo">` : '<div class="eu-photo eu-photo-placeholder"><i class="fas fa-user"></i></div>';
@@ -625,7 +708,7 @@ function buildResumeHTML(rawData) {
           ${skillsBarsHTML.replace('eu-section', 'eu-section eu-side-section')}
         </div>
         <div class="eu-main">
-          ${aboutMeHTML}${workExperienceHTML}${educationHTML}${languagesHTML}${projectsHTML}${achievementsHTML}${customHTML}
+          ${aboutMeHTML}${workExperienceHTML}${educationSec}${languagesHTML}${projectsSec}${achievementsSec}${customHTML}
         </div>
       </div>`;
   }
@@ -644,10 +727,10 @@ function buildResumeHTML(rawData) {
         <div class="eu-contact-bar">${contactInlineHTML}</div>
         <div class="eu-body">
           <div class="eu-main">
-            ${aboutMeHTML}${workExperienceHTML}${projectsHTML}${languagesHTML}
+            ${aboutMeHTML}${workExperienceHTML}${projectsSec}${languagesHTML}
           </div>
           <div class="eu-side-col">
-            ${educationHTML}${skillsBarsHTML}${achievementsHTML}${customHTML}
+            ${educationSec}${skillsBarsHTML}${achievementsSec}${customHTML}
           </div>
         </div>
       </div>`;
