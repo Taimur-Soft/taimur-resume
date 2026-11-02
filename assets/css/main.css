@@ -201,7 +201,9 @@ ol.step-list::before {
 .add-item-btn-secondary:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
 
 /* ── TEMPLATE GRID ───────────────────────────────────── */
-.template-grid { display: flex; gap: 12px; flex-wrap: wrap; }
+/* Five equal columns that always fill the row, so each layout group lines
+   up edge to edge with no empty space on the right. */
+.template-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
 .tpl-group-label {
   font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--text-muted); margin: 0 0 8px;
@@ -210,17 +212,22 @@ ol.step-list::before {
 .template-card {
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   cursor: pointer; border: 2px solid var(--border); border-radius: 10px;
-  padding: 12px; width: 100px; transition: all 0.15s;
+  padding: 12px; min-width: 0; transition: all 0.15s;
+  /* The thumb inside sizes itself from the card's width (cqw units). */
+  container-type: inline-size;
 }
 .template-card:hover { border-color: var(--primary); }
 .template-card.active { border-color: var(--primary); background: var(--primary-soft); }
-.template-card > span { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.template-card > span {
+  font-size: 12px; font-weight: 600; color: var(--text-muted);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .template-card.active > span { color: var(--primary); }
-/* The sketch inside each thumb is drawn by template-thumbs.css;
-   font-size scales it to this card size. */
+/* The sketch inside each thumb is drawn by template-thumbs.css in em
+   units; font-size scales it with the thumb (5px font at 76px wide). */
 .template-thumb {
-  width: 76px; height: 90px; border-radius: 5px;
-  border: 1px solid var(--border); font-size: 5px;
+  width: min(100px, 100cqw); aspect-ratio: 76 / 90; border-radius: 5px;
+  border: 1px solid var(--border); font-size: min(6.58px, 6.58cqw);
 }
 .template-section-note { font-size: 11.5px; color: var(--text-muted); margin: -6px 0 12px; }
 
@@ -1055,10 +1062,10 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
   }
   .github-import-row .btn-secondary { width: 100%; justify-content: center; }
 
-  /* Template grid → wrap nicely */
-  .template-grid { gap: 8px; }
-  .template-card { width: 80px; }
-  .template-thumb { width: 56px; height: 68px; font-size: 3.8px; }
+  /* Template grid: still five across, just tighter */
+  .template-grid { gap: 6px; }
+  .template-card { padding: 6px; gap: 6px; border-radius: 8px; }
+  .template-card > span { font-size: 9.5px; letter-spacing: -0.01em; }
 
   /* Repeater item: tighter */
   .repeater-item { padding: 12px; }
