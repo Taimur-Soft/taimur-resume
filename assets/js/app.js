@@ -575,28 +575,26 @@ function splitTimelineExtras(root) {
   right.append(...sections.slice(best.k));
 }
 
-// ── COLUMN BALANCING ───────────────────────────────────
-// Two-column templates put each section in a fixed column, so one column
-// could run onto a second page while the other stays half empty. After the
-// layout is drawn, this moves whole sections from the longer column to the
-// end of the shorter one, one at a time: each round it tries every section
-// that may move and keeps the move that evens the columns out best, and it
-// stops when no move makes the resume shorter. It runs again at the PDF's own width, so the
-// preview and the PDF both end up balanced. Single-column (timeline)
-// templates are left alone.
+// ── COLUMN BALANCING (EUROPASS ORDER) ──────────────────
+// Every template follows the Europass section order: About me, Work
+// experience, Education and training, Language skills, Skills, Projects,
+// Achievements, other sections (EUROPASS_ORDER). About me and Work
+// experience always stay in the main column (EUROPASS_CORE).
+// In a two-column template the flow is cut at one point: sections before
+// the cut fill the main column, the rest continue in the side column, still
+// in order (in the sidebar, under the personal information). The cut point
+// is chosen so the two columns end as level as possible, then the column
+// widths are fine-tuned. It runs again at the PDF's own width, so the
+// preview and the PDF both end up balanced.
 // split: the main column's share of the width, normally and at most/least,
-// for the final fine-tuning (a wider column wraps less and gets shorter).
+// for the fine-tuning (a wider column wraps less and gets shorter).
+const EUROPASS_ORDER = { personal: 5, about: 10, work: 20, education: 30, languages: 40, skills: 50, projects: 60, achievements: 70, custom: 80 };
+// Always in the main column. Education may continue at the top of the side
+// column when that evens the columns out; the reading order stays the same.
+const EUROPASS_CORE = new Set(['about', 'work']);
 const COLUMN_MOVES = {
-  sidebar: {
-    main: '.eu-main', side: '.eu-side', grid: '.rv-eu-sidebar', mainIsFirst: false,
-    toSide: ['education', 'languages', 'projects', 'achievements', 'custom'], toMain: [],
-    split: { normal: 0.66, min: 0.60, max: 0.70 }
-  },
-  banner: {
-    main: '.eu-main', side: '.eu-side-col', grid: '.eu-body', mainIsFirst: true,
-    toSide: ['projects', 'languages'], toMain: ['education', 'achievements', 'custom'],
-    split: { normal: 0.63, min: 0.56, max: 0.70 }
-  }
+  sidebar: { main: '.eu-main', side: '.eu-side', grid: '.rv-eu-sidebar', mainIsFirst: false, split: { normal: 0.66, min: 0.60, max: 0.70 } },
+  banner: { main: '.eu-main', side: '.eu-side-col', grid: '.eu-body', mainIsFirst: true, split: { normal: 0.63, min: 0.56, max: 0.70 } }
 };
 
 function balanceResumeColumns(root) {
@@ -615,86 +613,70 @@ function balanceResumeColumns(root) {
   };
   grid.style.gridTemplateColumns = ''; // back to the template's own widths
 
-  // Remember where each section belongs, then put back any that an earlier
-  // run (for another width) moved, so balancing always starts fresh.
-  for (const [name, col] of Object.entries(cols)) {
-    [...col.children].forEach((el, i) => {
-      if (el.dataset.sec && !el.dataset.home) { el.dataset.home = name; el.dataset.pos = i; }
-    });
-  }
-  [...layout.querySelectorAll('[data-sec][data-moved]')]
-    .sort((a, b) => a.dataset.pos - b.dataset.pos)
-    .forEach(sec => {
-      const home = cols[sec.dataset.home];
-      home.insertBefore(sec, home.children[+sec.dataset.pos] || null);
-      delete sec.dataset.moved;
-      if (isSidebar) sec.classList.remove('eu-side-section');
-    });
+  // The flowing sections in Europass order (the personal details block stays
+  // put). Start from all of them in the main column, so balancing for one
+  // width never depends on an earlier run for another.
+  const flow = [...layout.querySelectorAll('[data-sec]')]
+    .filter(s => s.dataset.sec !== 'personal')
+    .sort((a, b) => a.dataset.ord - b.dataset.ord);
+  const toSide = (sec, on) => { if (isSidebar) sec.classList.toggle('eu-side-section', on); };
+  flow.forEach(sec => { cols.main.appendChild(sec); toSide(sec, false); });
 
   // How tall the column's own content is (columns stretch to match each other).
   const contentH = (col) => {
     const top = col.getBoundingClientRect().top;
     return Math.max(0, ...[...col.children].map(c => c.getBoundingClientRect().bottom - top));
   };
-  const place = (sec, to) => {
-    const after = [...to.children].find(c => c.dataset.moved && +c.dataset.ord > +sec.dataset.ord);
-    to.insertBefore(sec, after || null);
-    sec.dataset.moved = '1';
-    if (isSidebar) sec.classList.toggle('eu-side-section', to === cols.side);
-  };
+  if (!contentH(cols.main)) return; // not on screen (e.g. hidden panel)
 
-  const tallest = () => Math.max(contentH(cols.main), contentH(cols.side));
+  // Sections from index k onwards go to the side column (after its fixed
+  // personal-information block), still in order.
+  const applyCut = (k) => flow.forEach((sec, i) => {
+    const inSide = i >= k;
+    (inSide ? cols.side : cols.main).appendChild(sec);
+    toSide(sec, inSide);
+  });
 
-  for (let guard = 0; guard < 8; guard++) {
-    const hMain = contentH(cols.main);
-    const hSide = contentH(cols.side);
-    if (!hMain && !hSide) return; // not on screen (e.g. hidden panel)
-    const fromMain = hMain > hSide;
-    const from = fromMain ? cols.main : cols.side;
-    const to = fromMain ? cols.side : cols.main;
-    const allowed = fromMain ? cfg.toSide : cfg.toMain;
-    const candidates = [...from.children].filter(c => allowed.includes(c.dataset.sec));
-    if (!candidates.length) return;
-
-    // Try each movable section in the other column, then put it back.
-    const before = Math.max(hMain, hSide);
-    let best = null;
-    for (const sec of candidates) {
-      const next = sec.nextElementSibling;
-      const wasMoved = sec.dataset.moved;
-      place(sec, to);
-      const h = tallest();
-      from.insertBefore(sec, next);
-      if (wasMoved) sec.dataset.moved = wasMoved; else delete sec.dataset.moved;
-      if (isSidebar) sec.classList.toggle('eu-side-section', from === cols.side);
-      if (!best || h < best.h) best = { sec, h };
-    }
-    // Stop when no move makes the resume noticeably shorter.
-    if (best.h > before - 4) break;
-    place(best.sec, to);
-  }
-
-  // Fine-tune: widen the longer column a little (within limits) until both
-  // columns end at about the same line. The main column gets shorter as it
-  // gets wider, so a few halving steps find the balance point.
+  // Width fine-tuning for the current cut: widen the longer column a little
+  // (within limits) until both end at about the same line. The main column
+  // gets shorter as it gets wider, so a few halving steps find the point.
   const { normal, min, max } = cfg.split;
   const gapAt = (f) => { setSplit(f); return contentH(cols.main) - contentH(cols.side); };
-  const startGap = gapAt(normal);
-  if (Math.abs(startGap) < 12) { grid.style.gridTemplateColumns = ''; return; }
-  let far = startGap > 0 ? max : min; // main too long: widen it; too short: narrow it
-  const farGap = gapAt(far);
-  // Even the furthest setting can't even them out: that is the closest.
-  if (Math.sign(farGap) === Math.sign(startGap)) return;
-  let near = normal;
-  let best = Math.abs(farGap) < Math.abs(startGap) ? { f: far, g: Math.abs(farGap) } : { f: normal, g: Math.abs(startGap) };
-  for (let i = 0; i < 7; i++) {
-    const mid = (near + far) / 2;
-    const g = gapAt(mid);
-    if (Math.abs(g) < best.g) best = { f: mid, g: Math.abs(g) };
-    if (Math.abs(g) < 6) return;
-    if (Math.sign(g) === Math.sign(startGap)) near = mid; else far = mid;
+  const tune = () => {
+    const startGap = gapAt(normal);
+    let res = { f: normal, gap: Math.abs(startGap) };
+    if (Math.abs(startGap) >= 12) {
+      let far = startGap > 0 ? max : min;
+      const farGap = gapAt(far);
+      if (Math.abs(farGap) < res.gap) res = { f: far, gap: Math.abs(farGap) };
+      if (Math.sign(farGap) !== Math.sign(startGap)) {
+        let near = normal;
+        for (let i = 0; i < 7 && res.gap >= 6; i++) {
+          const mid = (near + far) / 2;
+          const g = gapAt(mid);
+          if (Math.abs(g) < res.gap) res = { f: mid, gap: Math.abs(g) };
+          if (Math.sign(g) === Math.sign(startGap)) near = mid; else far = mid;
+        }
+      }
+    }
+    setSplit(res.f);
+    res.max = Math.max(contentH(cols.main), contentH(cols.side));
+    return res;
+  };
+
+  // Try every cut point after the core sections, each with its own width
+  // tuning, and keep the best: shortest resume first, then the most level.
+  const firstMovable = flow.findIndex(s => !EUROPASS_CORE.has(s.dataset.sec));
+  const cuts = firstMovable < 0 ? [flow.length]
+    : Array.from({ length: flow.length - firstMovable + 1 }, (_, i) => flow.length - i);
+  let best = null;
+  for (const k of cuts) {
+    applyCut(k);
+    const r = { k, ...tune() };
+    if (!best || r.max < best.max - 4 || (r.max <= best.max + 4 && r.gap < best.gap)) best = r;
   }
-  setSplit(best.f);
+  applyCut(best.k);
+  if (best.f === normal) grid.style.gridTemplateColumns = ''; else setSplit(best.f);
 }
 
 function buildResumeHTML(rawData) {
@@ -819,11 +801,23 @@ function buildResumeHTML(rawData) {
       <p class="eu-lang-note">CEFR levels: A1–A2 basic user · B1–B2 independent user · C1–C2 proficient user</p>` : ''}
     </div>` : '';
 
-  const customHTML = customSections.map((cs, n) => cs.items.filter(i => i.title).length > 0 ? tagSection(`
+  // Europass puts personal details (date of birth, nationality...) with the
+  // name and contact details at the top, so a custom section called e.g.
+  // "Personal Details" joins that block; other custom sections come last.
+  const isPersonalBlock = (name) => /^(personal (details|information|info|data)|ব্যক্তিগত তথ্য)$/i.test(String(name || '').trim());
+  const customSectionHTML = (cs, key, ord) => cs.items.filter(i => i.title).length > 0 ? tagSection(`
     <div class="eu-section">
-      <h3><i class="fas fa-star"></i> ${cs.name}</h3>
+      <h3><i class="fas fa-${key === 'personal' ? 'id-card' : 'star'}"></i> ${cs.name}</h3>
       ${cs.items.filter(i => i.title).map(i => euItem({ title: i.title, desc: i.description })).join('')}
-    </div>`, 'custom', 70 + n) : '').join('');
+    </div>`, key, ord) : '';
+  const personalSections = customSections.filter(cs => isPersonalBlock(cs.name));
+  const personalHTML = personalSections.map(cs => customSectionHTML(cs, 'personal', EUROPASS_ORDER.personal)).join('');
+  // Banner and timeline headers show them on one line with the contact
+  // details, as Europass does: "Date of birth: … · Nationality: …".
+  const personalInline = personalSections.flatMap(cs => cs.items.filter(i => i.title))
+    .map(i => `<span class="eu-personal-inline"><strong>${i.title}${i.description ? ':' : ''}</strong>${i.description ? ' ' + i.description : ''}</span>`).join('');
+  const customHTML = customSections.filter(cs => !isPersonalBlock(cs.name))
+    .map((cs, n) => customSectionHTML(cs, 'custom', EUROPASS_ORDER.custom + n)).join('');
 
   const aboutMeHTML = personal.summary ? `
     <div class="eu-section">
@@ -847,10 +841,18 @@ function buildResumeHTML(rawData) {
       <div class="eu-skill-tags">${skills.map(s => `<span class="eu-skill-tag">${s.skill}</span>`).join('')}</div>
     </div>` : '';
 
-  const educationSec = tagSection(educationHTML, 'education', 30);
-  const languagesSec = tagSection(languagesHTML, 'languages', 40);
-  const projectsSec = tagSection(projectsHTML, 'projects', 50);
-  const achievementsSec = tagSection(achievementsHTML, 'achievements', 60);
+  // Every flowing section, tagged with its Europass position.
+  const O = EUROPASS_ORDER;
+  const aboutSec = tagSection(aboutMeHTML, 'about', O.about);
+  const workSec = tagSection(workExperienceHTML, 'work', O.work);
+  const educationSec = tagSection(educationHTML, 'education', O.education);
+  const languagesSec = tagSection(languagesHTML, 'languages', O.languages);
+  const skillsBarsSec = tagSection(skillsBarsHTML, 'skills', O.skills);
+  const skillsTagsSec = tagSection(skillsTagsHTML, 'skills', O.skills);
+  const projectsSec = tagSection(projectsHTML, 'projects', O.projects);
+  const achievementsSec = tagSection(achievementsHTML, 'achievements', O.achievements);
+  // About me → Work → Education → Languages → Skills → Projects → Achievements → other.
+  const flowAfterEducation = `${languagesSec}${skillsBarsSec}${projectsSec}${achievementsSec}${customHTML}`;
 
   const contactHTML = contactList.map(c => `<div class="eu-contact-item"><i class="fas ${c.icon}"></i><span>${c.text}</span></div>`).join('');
   const contactInlineHTML = contactList.map(c => `<span class="eu-contact-inline"><i class="fas ${c.icon}"></i>${c.text}</span>`).join('');
@@ -868,10 +870,10 @@ function buildResumeHTML(rawData) {
             <h3><i class="fas fa-address-card"></i> Contact</h3>
             ${contactHTML}
           </div>
-          ${skillsBarsHTML.replace('eu-section', 'eu-section eu-side-section')}
+          ${personalHTML.replace(/class="eu-section"/g, 'class="eu-section eu-side-section"')}
         </div>
         <div class="eu-main">
-          ${aboutMeHTML}${workExperienceHTML}${educationSec}${languagesSec}${projectsSec}${achievementsSec}${customHTML}
+          ${aboutSec}${workSec}${educationSec}${flowAfterEducation}
         </div>
       </div>`;
   }
@@ -887,14 +889,12 @@ function buildResumeHTML(rawData) {
             <p class="eu-designation">${personal.designation || 'Your Title'}</p>
           </div>
         </div>
-        <div class="eu-contact-bar">${contactInlineHTML}</div>
+        <div class="eu-contact-bar">${contactInlineHTML}${personalInline}</div>
         <div class="eu-body">
           <div class="eu-main">
-            ${aboutMeHTML}${workExperienceHTML}${projectsSec}${languagesSec}
+            ${aboutSec}${workSec}${educationSec}${flowAfterEducation}
           </div>
-          <div class="eu-side-col">
-            ${educationSec}${skillsBarsHTML}${achievementsSec}${customHTML}
-          </div>
+          <div class="eu-side-col"></div>
         </div>
       </div>`;
   }
@@ -907,12 +907,12 @@ function buildResumeHTML(rawData) {
         <div>
           <h1>${fullName || 'Your Name'}</h1>
           <p class="eu-designation">${personal.designation || 'Your Title'}</p>
-          <div class="eu-contact-row">${contactInlineHTML}</div>
+          <div class="eu-contact-row">${contactInlineHTML}${personalInline}</div>
         </div>
       </div>
-      ${aboutMeHTML}
-      <div class="eu-tl-track">${workExperienceHTML}${educationSec}</div>
-      <div class="eu-tl-extras">${skillsTagsHTML}${languagesHTML}${projectsHTML}${achievementsHTML}${customHTML}</div>
+      ${aboutSec}
+      <div class="eu-tl-track">${workSec}${educationSec}</div>
+      <div class="eu-tl-extras">${languagesSec}${skillsTagsSec}${projectsSec}${achievementsSec}${customHTML}</div>
     </div>`;
 }
 

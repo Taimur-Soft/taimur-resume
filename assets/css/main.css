@@ -593,6 +593,14 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 .rv-eu-sidebar .eu-skill-bar { height: 4px; background: rgba(255,255,255,0.28); border-radius: 99px; }
 .rv-eu-sidebar .eu-skill-fill { height: 100%; background: var(--eu-skill-fill, rgba(255,255,255,0.9)); border-radius: 99px; }
 .rv-eu-sidebar .eu-main { padding: 24px 20px; background: var(--eu-surface, #fff); }
+/* Skills follow the Europass order, so they may sit in the white main
+   column (or a banner template): bars in the template's accent there. */
+.rv-eu-sidebar .eu-main .eu-skill-bar,
+.rv-eu-banner .eu-skill-bar { height: 4px; background: #e2e8f0; border-radius: 99px; }
+.rv-eu-sidebar .eu-main .eu-skill-fill,
+.rv-eu-banner .eu-skill-fill { height: 100%; background: var(--resume-accent); border-radius: 99px; }
+.rv-eu-banner .eu-skill { margin-bottom: 8px; }
+.rv-eu-banner .eu-skill span { font-size: 10px; display: block; margin-bottom: 3px; }
 /* Sections moved into the sidebar to balance the columns (app.js) take the
    sidebar's own colours, so they stay readable on a dark sidebar too. */
 .rv-eu-sidebar .eu-side .eu-item { text-align: left; }
@@ -651,6 +659,10 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 /* A long email or link may break mid-word rather than push past the page. */
 .eu-contact-inline { font-size: 9.5px; color: #cbd5e1; display: inline-flex; gap: 5px; align-items: center; max-width: 100%; overflow-wrap: anywhere; }
 .rv-eu-banner .eu-banner-text, .rv-eu-timeline .eu-tl-header > div { min-width: 0; }
+/* Personal details (date of birth...) on the contact line, Europass style. */
+.eu-personal-inline { font-size: 9.5px; color: #cbd5e1; max-width: 100%; overflow-wrap: anywhere; }
+.eu-personal-inline strong { font-weight: 600; }
+.rv-eu-timeline .eu-personal-inline { color: #64748b; }
 .eu-contact-inline i { opacity: 0.85; }
 .rv-eu-banner .eu-body { display: grid; grid-template-columns: 63% 37%; }
 .rv-eu-banner .eu-main { padding: 18px 18px 18px 22px; background: var(--eu-surface, #fff); }
