@@ -293,7 +293,10 @@ async function exportPDF() {
       creator: 'Taimur Resume'
     });
 
-    const fileName = [data.personal?.firstname, data.personal?.lastname].filter(Boolean).join('-') || 'resume';
+    // Same naming as the Export menu: "First-Last-Resume.pdf".
+    const fileName = typeof exportFileBase === 'function'
+      ? exportFileBase(data.personal || {})
+      : ([data.personal?.firstname, data.personal?.lastname].filter(Boolean).join('-') || 'My') + '-Resume';
     pdf.save(`${fileName}.pdf`);
     showToast('✅ PDF downloaded!', 'success');
 

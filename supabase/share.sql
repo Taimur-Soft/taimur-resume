@@ -37,7 +37,9 @@ create policy "owner deletes shares" on public.resume_shares
   for delete using (user_id = auth.uid());
 
 -- What a visitor with the link sees: the resume's current data (minus phone
--- and address if the owner chose to hide them). Counts the view.
+-- and address if the owner chose to hide them). Counts the view, unless
+-- it's the owner. (Link-preview bots from WhatsApp/LinkedIn don't run the
+-- page's JavaScript, so they never reach this function.)
 -- Returns null when the link doesn't exist or was turned off.
 create or replace function public.get_shared_resume(share_id text)
 returns jsonb
@@ -68,7 +70,11 @@ begin
     d := d #- '{personal,phoneno}' #- '{personal,address}';
   end if;
 
-  update public.resume_shares set views = views + 1 where id = share_id;
+  -- The owner opening their own link (signed in on the same browser)
+  -- isn't a view.
+  if auth.uid() is distinct from s.user_id then
+    update public.resume_shares set views = views + 1 where id = share_id;
+  end if;
   return d;
 end;
 $$;

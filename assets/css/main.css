@@ -722,6 +722,8 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 }
 .my-resume-actions .btn-icon:disabled { opacity: 0.4; cursor: default; }
 .btn-icon-only { padding-left: 10px; padding-right: 10px; }
+.history-btns { display: inline-flex; gap: 4px; margin-right: 8px; }
+.history-btns .btn-icon:disabled { opacity: 0.4; cursor: default; }
 
 .auth-account-btn {
   display: flex; align-items: center; gap: 7px; background: none; border: none;

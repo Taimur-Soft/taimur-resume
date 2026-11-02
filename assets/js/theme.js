@@ -41,9 +41,17 @@
 
   window.toggleTheme = function () {
     var next = currentTheme() === 'dark' ? 'light' : 'dark';
+    var system = media && media.matches ? 'dark' : 'light';
     root.classList.add('theme-anim');
-    root.setAttribute('data-theme', next);
-    try { localStorage.setItem(STORAGE_KEY, next); } catch (e) {}
+    if (next === system) {
+      // Back to what the computer uses: forget the choice, so the site
+      // follows the system setting again (e.g. dark at night).
+      root.removeAttribute('data-theme');
+      try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+    } else {
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem(STORAGE_KEY, next); } catch (e) {}
+    }
     updateButtons();
     setTimeout(function () { root.classList.remove('theme-anim'); }, 300);
   };

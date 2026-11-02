@@ -181,8 +181,9 @@ function renderCV() {
 // already exist for JSON import/export) after each real render — not
 // per keystroke, since renderCV() itself is already debounced. Lets
 // people step back after accidentally clearing a field or deleting an
-// item. Deliberately not bound to Ctrl+Z: that would fight with the
-// browser's own per-field undo while someone is typing.
+// item. Buttons above the preview; Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) only
+// when the cursor isn't in a text box, so the browser's own per-field undo
+// still works while typing.
 const historyStack = [];
 let historyIndex = -1;
 let isRestoringHistory = false;
@@ -228,6 +229,25 @@ function updateHistoryButtons() {
   if (undoBtn) undoBtn.disabled = historyIndex <= 0;
   if (redoBtn) redoBtn.disabled = historyIndex >= historyStack.length - 1;
 }
+
+// Start a fresh history (after opening or importing another resume), so
+// Undo can never bring one resume's content into another.
+function resetHistory() {
+  historyStack.length = 0;
+  historyStack.push(JSON.stringify(collectFormData()));
+  historyIndex = 0;
+  updateHistoryButtons();
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  if (document.querySelector('.share-modal[style*="flex"]')) return; // a window is open
+  const key = e.key.toLowerCase();
+  if (key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+  else if (key === 'y' || (key === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+});
 
 function collectFormData() {
   const get = (cls) => {

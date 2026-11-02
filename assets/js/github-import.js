@@ -98,7 +98,8 @@ async function importFromGitHub() {
     function applyField(profileValue, el, label) {
       if (!profileValue) { notOnProfile.push(label); return; }
       if (!el) return;
-      if (el.value.trim()) { skippedExisting.push(label); return; }
+      // "kept your existing website", not "…website (GitHub profile)".
+      if (el.value.trim()) { skippedExisting.push(label.replace(/\s*\(.*\)$/, '')); return; }
       el.value = profileValue;
       if (el.dataset.count && typeof updateCharCount === 'function') updateCharCount(el);
       filled.push(label);
@@ -119,7 +120,7 @@ async function importFromGitHub() {
     // best link for a developer resume.
     let site = profile.blog || profile.html_url;
     if (site && !/^https?:\/\//i.test(site)) site = 'https://' + site;
-    applyField(site, document.querySelector('.website'), profile.blog ? 'website' : 'website (GitHub profile)');
+    applyField(site, document.querySelector('.website'), profile.blog ? 'website' : 'website (your GitHub profile link)');
 
     // Projects: own (non-fork, non-archived) repos, best first. Skip ones
     // already on the resume so importing twice doesn't add duplicates.

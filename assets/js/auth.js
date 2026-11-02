@@ -949,6 +949,7 @@ function importOneFromBackup(i) {
 async function openImportedResume(data, name) {
   if (!currentUser) {
     restoreFromData(data);
+    if (typeof resetHistory === 'function') resetHistory();
     showToast('✅ Resume imported', 'success');
     return;
   }
@@ -970,6 +971,7 @@ async function openImportedResume(data, name) {
     lastSyncedJSON = null;
 
     restoreFromData(data);
+    if (typeof resetHistory === 'function') resetHistory();
     const clean = collectFormData();
     const p = clean.personal || {};
     const resumeName = String(name || [p.firstname, p.lastname].filter(Boolean).join(' ') || 'Imported Resume').slice(0, 100);
@@ -1697,6 +1699,7 @@ async function loadCloudResume(id, { silent = false } = {}) {
     autoSyncTimer = null;
     loadFailedId = null;
     markSynced(formSnapshot());
+    if (typeof resetHistory === 'function') resetHistory();
     if (silent && typeof reapplyRequestedTemplate === 'function') reapplyRequestedTemplate();
     if (!silent) {
       closeMyResumesModal();
@@ -1769,6 +1772,26 @@ async function deleteCloudResume(id) {
     showToast('❌ Could not delete: ' + err.message, 'error');
   }
 }
+
+// Esc closes the window that's open, using each window's own close
+// function so it cleans up the same way the × button does.
+const MODAL_CLOSERS = {
+  signOutModal: () => closeSignOutDialog(),
+  importPickModal: () => { if (typeof stopImportProgress === 'function') { importRunId++; stopImportProgress(); } closeImportPicker(); },
+  shareModal: () => closeShareModal(),
+  accountModal: () => closeAccountModal(),
+  myResumesModal: () => closeMyResumesModal(),
+  authModal: () => closeAuthModal()
+};
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || e.defaultPrevented) return;
+  // A rename box in My Resumes handles its own Esc (cancel rename).
+  if (e.target?.classList?.contains('rename-input')) return;
+  const open = Object.keys(MODAL_CLOSERS).find(id => document.getElementById(id)?.style.display === 'flex');
+  if (!open) return;
+  e.preventDefault();
+  MODAL_CLOSERS[open]();
+});
 
 // Close modals on backdrop click, same behavior as the share modal.
 document.addEventListener('DOMContentLoaded', async () => {
