@@ -596,6 +596,12 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 .rv-eu-sidebar .eu-side .eu-item-sub,
 .rv-eu-sidebar .eu-side .eu-item-desc,
 .rv-eu-sidebar .eu-side .eu-link { color: inherit; opacity: 0.82; }
+.rv-eu-sidebar .eu-side .eu-lang-mother,
+.rv-eu-sidebar .eu-side .eu-lang-mother strong,
+.rv-eu-sidebar .eu-side .eu-lang-table,
+.rv-eu-sidebar .eu-side .eu-lang-table th,
+.rv-eu-sidebar .eu-side .eu-lang-note { color: inherit; text-align: left; }
+.rv-eu-sidebar .eu-side .eu-lang-note { opacity: 0.7; }
 
 /* Each template's own accent (headings, rules, links, timeline markers).
    Picked to match the template's main colour and stay readable on white. */
@@ -644,6 +650,22 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 .rv-eu-banner .eu-body { display: grid; grid-template-columns: 63% 37%; }
 .rv-eu-banner .eu-main { padding: 18px 18px 18px 22px; background: var(--eu-surface, #fff); }
 .rv-eu-banner .eu-side-col { padding: 18px 18px 18px 12px; background: #f8fafc; border-left: 1px solid var(--border); }
+/* Language table moved into the narrow right column to balance it (app.js):
+   smaller type so the five CEFR columns still fit. */
+/* Too narrow for a five-column grid, so each language becomes a short list:
+   "English" then "Listening B2 · Reading C1 · …" (labels from data-label). */
+.rv-eu-banner .eu-side-col .eu-lang-table thead,
+.rv-eu-sidebar .eu-side .eu-lang-table thead { display: none; }
+.rv-eu-banner .eu-side-col .eu-lang-table, .rv-eu-banner .eu-side-col .eu-lang-table tbody, .rv-eu-banner .eu-side-col .eu-lang-table tr,
+.rv-eu-sidebar .eu-side .eu-lang-table, .rv-eu-sidebar .eu-side .eu-lang-table tbody, .rv-eu-sidebar .eu-side .eu-lang-table tr { display: block; width: 100%; }
+.rv-eu-banner .eu-side-col .eu-lang-table tr,
+.rv-eu-sidebar .eu-side .eu-lang-table tr { padding: 3px 0 5px; border-bottom: 1px solid rgba(128, 128, 128, 0.3); }
+.rv-eu-banner .eu-side-col .eu-lang-table tbody th,
+.rv-eu-sidebar .eu-side .eu-lang-table tbody th { display: block; border: 0; padding: 0 0 2px; text-align: left; font-size: 10px; }
+.rv-eu-banner .eu-side-col .eu-lang-table td,
+.rv-eu-sidebar .eu-side .eu-lang-table td { display: inline-block; border: 0; padding: 0 8px 1px 0; text-align: left; font-size: 9.5px; overflow-wrap: normal; }
+.rv-eu-banner .eu-side-col .eu-lang-table td::before,
+.rv-eu-sidebar .eu-side .eu-lang-table td::before { content: attr(data-label) ' '; font-weight: 400; opacity: 0.75; }
 
 /* Banner theme skins */
 .theme-sunrise { --eu-banner-bg: linear-gradient(120deg,#f59e0b,#ea580c); --eu-heading-font: 'Space Grotesk', sans-serif; --eu-body-font: 'Inter', sans-serif; --eu-photo-radius: 50%; --eu-contactbar-bg: #7c2d12; --eu-heading-color: #7c2d12; }

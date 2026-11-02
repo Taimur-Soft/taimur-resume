@@ -464,14 +464,25 @@ function sanitizeResumeData(raw) {
 // ── COLUMN BALANCING ───────────────────────────────────
 // Two-column templates put each section in a fixed column, so one column
 // could run onto a second page while the other stays half empty. After the
-// layout is drawn, this moves whole sections from the end of the longer
-// column to the end of the shorter one, one at a time, as long as each move
-// makes the resume shorter. It runs again at the PDF's own width, so the
+// layout is drawn, this moves whole sections from the longer column to the
+// end of the shorter one, one at a time: each round it tries every section
+// that may move and keeps the move that evens the columns out best, and it
+// stops when no move makes the resume shorter. It runs again at the PDF's own width, so the
 // preview and the PDF both end up balanced. Single-column (timeline)
 // templates are left alone.
+// split: the main column's share of the width, normally and at most/least,
+// for the final fine-tuning (a wider column wraps less and gets shorter).
 const COLUMN_MOVES = {
-  sidebar: { main: '.eu-main', side: '.eu-side', toSide: ['projects', 'achievements', 'custom'], toMain: [] },
-  banner: { main: '.eu-main', side: '.eu-side-col', toSide: ['projects'], toMain: ['education', 'achievements', 'custom'] }
+  sidebar: {
+    main: '.eu-main', side: '.eu-side', grid: '.rv-eu-sidebar', mainIsFirst: false,
+    toSide: ['education', 'languages', 'projects', 'achievements', 'custom'], toMain: [],
+    split: { normal: 0.66, min: 0.60, max: 0.70 }
+  },
+  banner: {
+    main: '.eu-main', side: '.eu-side-col', grid: '.eu-body', mainIsFirst: true,
+    toSide: ['projects', 'languages'], toMain: ['education', 'achievements', 'custom'],
+    split: { normal: 0.63, min: 0.56, max: 0.70 }
+  }
 };
 
 function balanceResumeColumns(root) {
@@ -480,7 +491,14 @@ function balanceResumeColumns(root) {
   const isSidebar = layout.classList.contains('rv-eu-sidebar');
   const cfg = COLUMN_MOVES[isSidebar ? 'sidebar' : 'banner'];
   const cols = { main: layout.querySelector(cfg.main), side: layout.querySelector(cfg.side) };
-  if (!cols.main || !cols.side) return;
+  const grid = layout.matches(cfg.grid) ? layout : layout.querySelector(cfg.grid);
+  if (!cols.main || !cols.side || !grid) return;
+  const setSplit = (f) => {
+    const main = (f * 100).toFixed(2) + '%';
+    const side = ((1 - f) * 100).toFixed(2) + '%';
+    grid.style.gridTemplateColumns = cfg.mainIsFirst ? `${main} ${side}` : `${side} ${main}`;
+  };
+  grid.style.gridTemplateColumns = ''; // back to the template's own widths
 
   // Remember where each section belongs, then put back any that an earlier
   // run (for another width) moved, so balancing always starts fresh.
@@ -510,6 +528,8 @@ function balanceResumeColumns(root) {
     if (isSidebar) sec.classList.toggle('eu-side-section', to === cols.side);
   };
 
+  const tallest = () => Math.max(contentH(cols.main), contentH(cols.side));
+
   for (let guard = 0; guard < 8; guard++) {
     const hMain = contentH(cols.main);
     const hSide = contentH(cols.side);
@@ -518,21 +538,48 @@ function balanceResumeColumns(root) {
     const from = fromMain ? cols.main : cols.side;
     const to = fromMain ? cols.side : cols.main;
     const allowed = fromMain ? cfg.toSide : cfg.toMain;
-    // Only the last movable section, so the column keeps its reading order.
-    const sec = [...from.children].filter(c => allowed.includes(c.dataset.sec)).pop();
-    if (!sec) return;
+    const candidates = [...from.children].filter(c => allowed.includes(c.dataset.sec));
+    if (!candidates.length) return;
+
+    // Try each movable section in the other column, then put it back.
     const before = Math.max(hMain, hSide);
-    const next = sec.nextElementSibling;
-    const wasMoved = sec.dataset.moved;
-    place(sec, to);
-    if (Math.max(contentH(cols.main), contentH(cols.side)) > before - 4) {
-      // No real gain: undo this move and stop.
+    let best = null;
+    for (const sec of candidates) {
+      const next = sec.nextElementSibling;
+      const wasMoved = sec.dataset.moved;
+      place(sec, to);
+      const h = tallest();
       from.insertBefore(sec, next);
       if (wasMoved) sec.dataset.moved = wasMoved; else delete sec.dataset.moved;
       if (isSidebar) sec.classList.toggle('eu-side-section', from === cols.side);
-      return;
+      if (!best || h < best.h) best = { sec, h };
     }
+    // Stop when no move makes the resume noticeably shorter.
+    if (best.h > before - 4) break;
+    place(best.sec, to);
   }
+
+  // Fine-tune: widen the longer column a little (within limits) until both
+  // columns end at about the same line. The main column gets shorter as it
+  // gets wider, so a few halving steps find the balance point.
+  const { normal, min, max } = cfg.split;
+  const gapAt = (f) => { setSplit(f); return contentH(cols.main) - contentH(cols.side); };
+  const startGap = gapAt(normal);
+  if (Math.abs(startGap) < 12) { grid.style.gridTemplateColumns = ''; return; }
+  let far = startGap > 0 ? max : min; // main too long: widen it; too short: narrow it
+  const farGap = gapAt(far);
+  // Even the furthest setting can't even them out: that is the closest.
+  if (Math.sign(farGap) === Math.sign(startGap)) return;
+  let near = normal;
+  let best = Math.abs(farGap) < Math.abs(startGap) ? { f: far, g: Math.abs(farGap) } : { f: normal, g: Math.abs(startGap) };
+  for (let i = 0; i < 7; i++) {
+    const mid = (near + far) / 2;
+    const g = gapAt(mid);
+    if (Math.abs(g) < best.g) best = { f: mid, g: Math.abs(g) };
+    if (Math.abs(g) < 6) return;
+    if (Math.sign(g) === Math.sign(startGap)) near = mid; else far = mid;
+  }
+  setSplit(best.f);
 }
 
 function buildResumeHTML(rawData) {
@@ -652,7 +699,7 @@ function buildResumeHTML(rawData) {
       ${otherLanguages.length ? `
       <table class="eu-lang-table">
         <thead><tr><th scope="col">Other language(s)</th>${CEFR_SKILLS.map(s => `<th scope="col">${s.label}</th>`).join('')}</tr></thead>
-        <tbody>${otherLanguages.map(l => `<tr><th scope="row">${l.language}</th>${CEFR_SKILLS.map(s => `<td>${l[s.key] || '–'}</td>`).join('')}</tr>`).join('')}</tbody>
+        <tbody>${otherLanguages.map(l => `<tr><th scope="row">${l.language}</th>${CEFR_SKILLS.map(s => `<td data-label="${s.label}">${l[s.key] || '–'}</td>`).join('')}</tr>`).join('')}</tbody>
       </table>
       <p class="eu-lang-note">CEFR levels: A1–A2 basic user · B1–B2 independent user · C1–C2 proficient user</p>` : ''}
     </div>` : '';
@@ -686,6 +733,7 @@ function buildResumeHTML(rawData) {
     </div>` : '';
 
   const educationSec = tagSection(educationHTML, 'education', 30);
+  const languagesSec = tagSection(languagesHTML, 'languages', 40);
   const projectsSec = tagSection(projectsHTML, 'projects', 50);
   const achievementsSec = tagSection(achievementsHTML, 'achievements', 60);
 
@@ -708,7 +756,7 @@ function buildResumeHTML(rawData) {
           ${skillsBarsHTML.replace('eu-section', 'eu-section eu-side-section')}
         </div>
         <div class="eu-main">
-          ${aboutMeHTML}${workExperienceHTML}${educationSec}${languagesHTML}${projectsSec}${achievementsSec}${customHTML}
+          ${aboutMeHTML}${workExperienceHTML}${educationSec}${languagesSec}${projectsSec}${achievementsSec}${customHTML}
         </div>
       </div>`;
   }
@@ -727,7 +775,7 @@ function buildResumeHTML(rawData) {
         <div class="eu-contact-bar">${contactInlineHTML}</div>
         <div class="eu-body">
           <div class="eu-main">
-            ${aboutMeHTML}${workExperienceHTML}${projectsSec}${languagesHTML}
+            ${aboutMeHTML}${workExperienceHTML}${projectsSec}${languagesSec}
           </div>
           <div class="eu-side-col">
             ${educationSec}${skillsBarsHTML}${achievementsSec}${customHTML}
