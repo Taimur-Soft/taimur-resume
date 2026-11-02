@@ -122,7 +122,8 @@ function extractATSKeywords(text) {
 // (making every ATS keyword "match") and any sign-in or account fields,
 // and send them to LanguageTool and Gemini.
 function getResumeText() {
-  const data = collectFormData();
+  // Sensitive details (e.g. religion) are never sent to the AI (app.js).
+  const data = stripSensitiveItems(collectFormData());
   // Contact details (email, phone) aren't needed by any check, so they are
   // never sent to LanguageTool or Gemini.
   const skipKeys = new Set(['image', 'level', 'link', 'current', 'email', 'phoneno']);
@@ -145,7 +146,7 @@ function getResumeText() {
 // LanguageTool flagged them as spelling mistakes, and gluing separate
 // fields together produced fake "repeated word" errors.
 function getResumeProse() {
-  const d = collectFormData();
+  const d = stripSensitiveItems(collectFormData());
   const texts = [
     d.personal.summary,
     ...d.experiences.map(e => e.description),

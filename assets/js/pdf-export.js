@@ -316,7 +316,7 @@ async function exportPDF() {
       pdf.addImage(page.toDataURL('image/png'), 'PNG', 0, 0, pageWmm, pageHmm, undefined, 'FAST');
     }
 
-    const data = window.__viewedResumeData || collectFormData();
+    const data = stripSensitiveItems(window.__viewedResumeData || collectFormData());
     const name = [data.personal?.firstname, data.personal?.lastname].filter(Boolean).join(' ');
 
     // Page numbers (sharp vector text) when there is more than one page.

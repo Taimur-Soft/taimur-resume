@@ -307,9 +307,10 @@ body { background: #e9edf5; margin: 0; padding: 32px 16px; display: block; }
 // ── Menu actions ───────────────────────────────────────
 async function exportResumeAs(format) {
   closeExportMenu();
-  const d = collectFormData();
+  if (format === 'json') return exportJSON(); // a full backup, kept as typed
+  // Sensitive details (e.g. religion) never go into a CV file (app.js).
+  const d = stripSensitiveItems(collectFormData());
   const p = d.personal;
-  if (format === 'json') return exportJSON();
   if (!p.firstname && !p.lastname && !p.designation) {
     showToast('Fill in at least your name first', 'error');
     return;

@@ -19,7 +19,8 @@ async function shareResume() {
   modal.style.display = 'flex';
   setShareView('loading');
 
-  const data = collectFormData();
+  // Sensitive details (e.g. religion) never travel in a share link (app.js).
+  const data = stripSensitiveItems(collectFormData());
   const p = data.personal;
   const name = [p.firstname, p.lastname].filter(Boolean).join(' ');
   if (!name && !p.designation) {

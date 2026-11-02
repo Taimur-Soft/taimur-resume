@@ -156,6 +156,7 @@ function renderCV() {
   const data = collectFormData();
   const preview = document.getElementById('resumePreview');
   const empty = document.getElementById('previewEmpty');
+  updateSensitiveNotes();
 
   const hasData = data.personal.firstname || data.personal.lastname || data.personal.designation;
 
@@ -397,9 +398,83 @@ function sanitizeImageSrc(src) {
   return '';
 }
 
+// ── SENSITIVE PERSONAL DATA (EU) ───────────────────────
+// Some details have no place on a European CV. "block": special categories
+// of personal data (GDPR Art. 9) and grounds EU equal-treatment law forbids
+// employers to use (Directives 2000/43/EC, 2000/78/EC); they are left off
+// the CV and every export. "warn": legal but not wanted on a Europass CV;
+// shown, with a note suggesting removal. Only custom sections are checked,
+// since the builder's own fields never ask for these.
+// A title matches only when it is just that label ("Religion", "Blood
+// Group"), so e.g. "Health and Safety Certificate" is not caught.
+const CV_SENSITIVE = [
+  { level: 'block', label: 'Religion', re: /^(religion|religious (belief|view)s?|faith|belief|ধর্ম)$/ },
+  { level: 'block', label: 'Caste or ethnicity', re: /^(caste|ethnicity|ethnic (origin|group)|race|racial origin|tribe|বর্ণ|গোত্র|জাতিগোষ্ঠী)$/ },
+  { level: 'block', label: 'Political views', re: /^(politic(s|al)( (party|affiliation|views?|opinions?))?|party affiliation|রাজনৈতিক (দল|পরিচয়|মতাদর্শ))$/ },
+  { level: 'block', label: 'Health information', re: /^(blood (group|type)|health( (status|condition))?|medical (condition|history)|disabilit(y|ies)|রক্তের গ্রুপ|স্বাস্থ্য|প্রতিবন্ধিতা)$/ },
+  { level: 'block', label: 'Sexual orientation', re: /^(sexual orientation|sexuality)$/ },
+  { level: 'block', label: 'Trade union membership', re: /^(trade )?union membership$/ },
+  { level: 'warn', label: 'Marital status', re: /^(marital|married|relationship) status|^বৈবাহিক অবস্থা$/ },
+  { level: 'warn', label: "Parents' or spouse's name", re: /^((father|mother|parent|spouse|husband|wife)'?s?'? name|(পিতা|মাতা|বাবা|মা|স্বামী|স্ত্রী)(র|য়ের|ের)? নাম)$/ },
+  { level: 'warn', label: 'ID or passport number', re: /^(nid|national id( card)?|national identity( card)?|passport)( (no\.?|number))?$|^(জাতীয় পরিচয়পত্র|এনআইডি)( নম্বর)?$/ },
+  { level: 'warn', label: 'Height or weight', re: /^(height|weight|উচ্চতা|ওজন)$/ }
+];
+
+// Returns the matching rule for a section name / item title, or for an
+// item description that starts with a label ("Religion: Islam"), else null.
+function cvSensitiveMatch(title, description = '') {
+  const norm = (s) => String(s || '').toLowerCase().replace(/[\s:.\-–—]+$/, '').replace(/\s+/g, ' ').trim();
+  const t = norm(title);
+  const lead = norm(String(description || '').split(/[:\-–—]/)[0]);
+  const hasLead = /[:\-–—]/.test(String(description || ''));
+  return CV_SENSITIVE.find(r => r.re.test(t) || (hasLead && r.re.test(lead))) || null;
+}
+
+// A copy of the resume data without the blocked details (whole custom
+// sections named e.g. "Religion", or single items such as Religion: Islam).
+function stripSensitiveItems(raw) {
+  if (!raw || !Array.isArray(raw.customSections)) return raw;
+  const blocked = (m) => m && m.level === 'block';
+  return {
+    ...raw,
+    customSections: raw.customSections
+      .filter(cs => !blocked(cvSensitiveMatch(cs.name)))
+      .map(cs => ({ ...cs, items: (cs.items || []).filter(i => !blocked(cvSensitiveMatch(i.title, i.description))) }))
+  };
+}
+
+// Notes under the custom section fields, refreshed on every render: red
+// when a detail is left off the CV, amber when it is only discouraged.
+function updateSensitiveNotes() {
+  const note = (host, anchor, match) => {
+    let el = host.querySelector(':scope > .sensitive-note');
+    if (!match) { el?.remove(); return; }
+    if (!el) {
+      el = document.createElement('p');
+      el.className = 'sensitive-note';
+      el.setAttribute('role', 'status');
+      anchor.after(el);
+    }
+    el.classList.toggle('is-block', match.level === 'block');
+    el.classList.toggle('is-warn', match.level === 'warn');
+    el.textContent = match.level === 'block'
+      ? `🚫 ${match.label} won't appear on your CV. EU law treats it as sensitive personal data that employers may not use when hiring, so Europass CVs leave it out.`
+      : `⚠️ ${match.label} isn't part of a Europass CV. It's allowed, but recruiters don't need it${/ID/.test(match.label) ? ' and it can be misused' : ''}: consider removing it.`;
+  };
+  document.querySelectorAll('.custom-section-block').forEach(block => {
+    const header = block.querySelector(':scope > .section-header');
+    if (header) note(block, header, cvSensitiveMatch(block.querySelector('.custom-section-name')?.textContent));
+    block.querySelectorAll('.custom-item').forEach(item => {
+      const row = item.querySelector(':scope > .form-row');
+      if (row) note(item, row, cvSensitiveMatch(item.querySelector('.custom_title')?.value, item.querySelector('.custom_description')?.value));
+    });
+  });
+}
+
 // Produces an escaped, safe-to-render copy of the resume data. Everything
 // downstream in buildResumeHTML() can then interpolate these fields as-is.
 function sanitizeResumeData(raw) {
+  raw = stripSensitiveItems(raw) || {};
   const personal = raw.personal || {};
   return {
     personal: {

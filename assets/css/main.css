@@ -231,6 +231,11 @@ ol.step-list::before {
 }
 .template-section-note { font-size: 11.5px; color: var(--text-muted); margin: -6px 0 12px; }
 
+/* Note under a custom section field holding sensitive personal data (app.js). */
+.sensitive-note { font-size: 12px; line-height: 1.5; margin: 8px 0 2px; padding: 7px 10px; border-radius: 7px; }
+.sensitive-note.is-block { background: var(--danger-soft); color: var(--danger); }
+.sensitive-note.is-warn { background: var(--warning-soft); color: var(--warning-ink); }
+
 /* ── GITHUB IMPORT ───────────────────────────────────── */
 .github-import-row { display: flex; gap: 10px; }
 .github-import-row .form-input { flex: 1; }
