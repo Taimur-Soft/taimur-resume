@@ -1,0 +1,4 @@
+# Files that belong in the repository but not on the public website.
+supabase/
+README.md
+.vercelignore

@@ -79,7 +79,7 @@ flowchart LR
 
 Most of the app runs in the browser. The server code is two small functions:
 
-- `api/shorten.js` proxies is.gd to avoid CORS errors and accepts only `http`/`https` URLs, so it cannot be used as an open proxy.
+- `api/shorten.js` proxies is.gd to avoid CORS errors and only shortens this site's own resume links (`/view.html`), so it can't be used by others as a free shortener.
 - `api/gemini.js` calls Gemini with the site's key for signed-in users. It verifies the Supabase session, counts each request against a daily limit (`supabase/ai-usage.sql`), and only forwards plain text prompts to two allowed models.
 
 ---
@@ -168,6 +168,8 @@ Run `supabase/share.sql` once in the SQL Editor. Until then, sharing falls back 
 - **XSS protection.** Resume data can arrive from untrusted shared links, so every field is HTML-escaped before rendering. Links are limited to `http`, `https` and `mailto`, and images to `https` or local `data:image` URLs.
 - **No leftover local data.** Resumes are never kept in `localStorage`; signed-out sessions start blank, and data from older versions is purged on load.
 - **Keys stay secret.** The site's Gemini key exists only as a Vercel environment variable and never reaches the browser. A user's own key is stored only in their browser and sent only to Google.
+- **Security headers** (`vercel.json`): a Content Security Policy that only allows the site's own code and its known CDNs and APIs, plus `X-Frame-Options: DENY` (no clickjacking), `X-Content-Type-Options`, `Referrer-Policy` and `Permissions-Policy`. Third-party libraries are loaded at fixed versions.
+- **Fair AI limit.** Only successful AI answers count towards the daily limit.
 - **No contact details sent to AI.** Email and phone number are left out of everything sent to LanguageTool and Gemini.
 - **Share links stay private.** Short links live in the owner's own database; visitors can only read a resume through a function that checks the link is still active (Row Level Security keeps the table itself closed). No third party receives the resume, except the URL shortener in the rare signed-out case where a link is too long for a QR code.
 

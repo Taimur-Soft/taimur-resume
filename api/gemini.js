@@ -207,10 +207,13 @@ export default async function handler(req, res) {
   const { request, error } = cleanRequest(req.body);
   if (error) return res.status(400).json({ error });
 
-  // 3. Count this use against the user's daily limit (atomic, in Supabase).
-  let used;
-  try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/use_ai_quota`, {
+  // 3. Daily limit. Only successful answers count, so a request that fails
+  //    (Google busy, timed out...) doesn't use up one of the user's tries.
+  //    get_ai_usage (supabase/account.sql) reads today's count; use_ai_quota
+  //    (supabase/ai-usage.sql) adds one. Without get_ai_usage, fall back to
+  //    counting up front.
+  const rpc = async (name) => {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
       method: 'POST',
       headers: {
         apikey: SUPABASE_PUBLISHABLE_KEY,
@@ -219,19 +222,32 @@ export default async function handler(req, res) {
       },
       body: '{}'
     });
-    if (!r.ok) {
-      // Fail closed: without the limit, anyone signed in could use up the key.
-      return res.status(503).json({ error: 'The AI usage limit is not set up yet. Add your own free Gemini key in AI Tools to use it now.', code: 'not_configured' });
+    return { ok: r.ok, value: r.ok ? Number(await r.json()) : null };
+  };
+  const limitReached = () => res.status(429).json({
+    error: `You have used all ${DAILY_LIMIT} free AI requests for today. They reset tomorrow, or add your own free Gemini key in AI Tools for unlimited use.`,
+    code: 'daily_limit'
+  });
+
+  let used;
+  let countAfter = true;
+  try {
+    const today = await rpc('get_ai_usage');
+    if (today.ok) {
+      if (today.value >= DAILY_LIMIT) return limitReached();
+      used = today.value;
+    } else {
+      countAfter = false;
+      const counted = await rpc('use_ai_quota');
+      if (!counted.ok) {
+        // Fail closed: without the limit, anyone signed in could use up the key.
+        return res.status(503).json({ error: 'The AI usage limit is not set up yet. Add your own free Gemini key in AI Tools to use it now.', code: 'not_configured' });
+      }
+      used = counted.value;
+      if (!(used <= DAILY_LIMIT)) return limitReached();
     }
-    used = Number(await r.json());
   } catch {
     return res.status(502).json({ error: 'Could not check your AI usage. Please try again.' });
-  }
-  if (!(used <= DAILY_LIMIT)) {
-    return res.status(429).json({
-      error: `You have used all ${DAILY_LIMIT} free AI requests for today. They reset tomorrow, or add your own free Gemini key in AI Tools for unlimited use.`,
-      code: 'daily_limit'
-    });
   }
 
   // 4. Ask Gemini.
@@ -239,6 +255,12 @@ export default async function handler(req, res) {
   try {
     const { status, data } = await generate(request, apiKey, log);
     if (status === 200) {
+      if (countAfter) {
+        try {
+          const counted = await rpc('use_ai_quota');
+          used = counted.ok ? counted.value : used + 1;
+        } catch { used += 1; }
+      }
       return res.status(200).json({ ...data, usage: { used, limit: DAILY_LIMIT } });
     }
     // Which models were tried, how long each took and what Google said.

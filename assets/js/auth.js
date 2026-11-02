@@ -1743,12 +1743,25 @@ async function duplicateCloudResume(id) {
 async function deleteCloudResume(id) {
   if (!confirm('Delete this saved resume? This cannot be undone.')) return;
   try {
+    // Deleting the resume that's open: stop any pending save first, so it
+    // can't write the deleted resume back as a new one.
+    const isOpen = currentCloudResumeId === id;
+    if (isOpen) {
+      clearTimeout(autoSyncTimer);
+      autoSyncTimer = null;
+      resumeContextVersion++;
+    }
     const { error } = await supabaseClient.from('resumes').delete().eq('id', id);
     if (error) throw error;
-    if (currentCloudResumeId === id) {
+    if (isOpen) {
+      // Its text is still in the editor, and the next keystroke would save
+      // it again as a brand-new resume ("I deleted it but it came back").
+      // Start from a clean, empty editor instead.
       setActiveCloudResumeId(null);
       setActiveCloudResumeName(null);
-      setCloudSyncStatus('idle');
+      try { sessionStorage.setItem('tr_toast_after_reload', '✅ Resume deleted. You\'re now on a new, empty resume; open another one from My Resumes.'); } catch (e) {}
+      window.location.reload();
+      return;
     }
     showToast('✅ Resume deleted', 'success');
     openMyResumes(); // refresh the list
@@ -1769,6 +1782,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // After finishing the sign-up flow (email -> code -> set password) we
   // sign the user out and reload back to #signin so they log in fresh with
   // their new email + password — prefill the email and show a success toast.
+  // A message saved just before a reload (e.g. after deleting the open resume).
+  try {
+    const pending = sessionStorage.getItem('tr_toast_after_reload');
+    if (pending) {
+      sessionStorage.removeItem('tr_toast_after_reload');
+      showToast(pending, 'success');
+    }
+  } catch (e) {}
+
   let justSignedUpEmail = null;
   try { justSignedUpEmail = sessionStorage.getItem('tr_just_signed_up_email'); } catch (e) {}
   if (justSignedUpEmail) {

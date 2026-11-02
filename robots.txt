@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+# Shared resumes (view.html) stay crawlable so WhatsApp / LinkedIn can build
+# link previews; the page itself says "noindex" to keep it out of search.
+
+Sitemap: https://taimur-resume.vercel.app/sitemap.xml
