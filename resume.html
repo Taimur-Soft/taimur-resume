@@ -414,26 +414,10 @@
           <h3><i class="fas fa-robot"></i> AI Tools</h3>
         </div>
 
-        <!-- Gemini key: shared by AI Match and Tone -->
-        <div class="ai-key-card">
-          <div class="ai-key-head">
-            <span class="ai-key-title"><i class="fas fa-key" aria-hidden="true"></i> Gemini API key <small>(optional)</small></span>
-            <span id="aiKeyStatus" class="ai-key-status" aria-live="polite"></span>
-          </div>
-          <p class="hint-text">When you're signed in, the AI tools work <strong>without a key</strong> (with a small daily limit). For unlimited use, add your own free key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>. It's stored only in this browser and sent only to Google.</p>
-          <div class="ai-key-row">
-            <input type="password" id="geminiApiKey" class="form-input" autocomplete="off"
-              placeholder="Optional: paste your own Gemini API key" aria-label="Gemini API key (optional)">
-            <button onclick="saveApiKey()" class="btn-icon" title="Save key in this browser">
-              <i class="fas fa-save"></i> Save
-            </button>
-          </div>
-        </div>
-
         <!-- ATS Score -->
         <div class="ai-tool-card">
           <h4><i class="fas fa-chart-bar" style="color:var(--primary)"></i> ATS Match Checker</h4>
-          <p class="hint-text">Paste a job description. <strong>Keyword Score</strong> is instant and runs in your browser. <strong>AI Match</strong> uses Gemini to compare meaning, find missing skills, and rewrite weak bullet points (uses the Gemini key above).</p>
+          <p class="hint-text">Paste a job description. <strong>Keyword Score</strong> is instant and runs in your browser. <strong>AI Match</strong> uses Gemini to compare meaning, find missing skills, and rewrite weak bullet points.</p>
           <textarea id="jobDescription" class="form-input" rows="5"
             placeholder="Paste the full job description here...&#10;&#10;e.g. We are looking for a Software Engineer with experience in React, Node.js, and REST APIs..."></textarea>
           <div class="ats-actions">
@@ -774,14 +758,12 @@
       <section id="accPanel-ai" class="account-panel" role="tabpanel" aria-labelledby="accTab-ai" hidden>
         <div class="account-ai-usage">
           <div class="account-ai-usage-top">
-            <span>Free AI requests today</span>
+            <span>AI requests today</span>
             <strong id="accountAiCount">…</strong>
           </div>
           <div class="password-meter account-ai-meter" aria-hidden="true"><span id="accountAiBar"></span></div>
           <p id="accountAiNote" class="hint-text"></p>
         </div>
-        <h5 class="account-subhead"><i class="fas fa-key"></i> Your own Gemini key</h5>
-        <p id="accountAiKeyState" class="hint-text"></p>
         <button type="button" class="btn-icon account-wide-btn" onclick="closeAccountModal(); if (typeof scrollToSection === 'function') scrollToSection('aitools');"><i class="fas fa-robot"></i> Open AI Tools</button>
       </section>
     </div>
@@ -804,10 +786,6 @@
       <button onclick="closeSignOutDialog()" class="btn-close" aria-label="Close">×</button>
       <h4 id="signOutTitle"><i class="fas fa-arrow-right-from-bracket"></i> Sign out?</h4>
       <p id="signOutStatus" class="hint-text">Your resume is saved to your account. You can sign in again any time.</p>
-      <label id="signOutKeyRow" class="signout-check" hidden>
-        <input type="checkbox" id="signOutRemoveKey">
-        <span>Also remove my Gemini API key from this browser <small>(recommended on a shared computer)</small></span>
-      </label>
       <div class="signout-actions">
         <button type="button" class="btn-icon" onclick="closeSignOutDialog()">Cancel</button>
         <button type="button" id="signOutConfirmBtn" class="btn-danger"><i class="fas fa-arrow-right-from-bracket"></i> Sign out</button>

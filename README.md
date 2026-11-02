@@ -29,7 +29,7 @@ A free, browser-based resume builder with a live preview, 15 Europass-format tem
 - **Grammar check** through the public [LanguageTool](https://languagetool.org) API (no key needed).
 - **Tone analysis** through Google Gemini.
 - **Improve with AI** on any experience or project description: Gemini rewrites it into 2–4 strong bullet points using only the user's facts, shown as a suggestion to accept or dismiss.
-- **No key needed when signed in.** Gemini requests go through a small server function (`api/gemini.js`) that holds the site's key, checks the Supabase session and applies a per-user daily limit. Users can still add their own free key for unlimited use; it is stored only in their browser. Busy or rate-limited requests are retried with exponential backoff and then fall back to a lighter model.
+- **No key for users.** Every Gemini request goes through a small server function (`api/gemini.js`) that holds the site owner's key, checks the Supabase session and applies a per-user daily limit. Users never see or enter a key. Busy or rate-limited requests are retried with exponential backoff and then fall back to a lighter model.
 - **GitHub import.** Enter a username to fill in name, bio, location and website, and add up to five top non-fork repositories as projects.
 
 ### Accounts and cloud save
@@ -37,7 +37,7 @@ A free, browser-based resume builder with a live preview, 15 Europass-format tem
 - **Automatic cloud sync** while signed in, plus a manual *Save to Cloud* button.
 - **My Resumes:** keep several resumes, then rename, duplicate, load or delete them.
 - **Account menu and settings:** a navbar menu (settings, resumes, AI usage, theme, sign out) and tabbed settings: Profile (photo, name, phone, fill the resume from the profile), Security (password change that checks the current password, strength meter, sign out of all devices), Privacy (GDPR data download and account deletion) and AI (today's usage).
-- **Safe sign-out:** unsaved edits are saved first, with an option to remove the Gemini key from a shared computer.
+- **Safe sign-out:** unsaved edits are saved first.
 - **Demo mode** for signed-out visitors. Nothing is stored, so no data is left behind on shared computers.
 
 ### Export and sharing
@@ -73,7 +73,6 @@ flowchart LR
   U -->|grammar| L[LanguageTool API]
   U -->|AI, signed in| AI[/api/gemini/]
   AI -->|site key, daily limit| GM[Google Gemini API]
-  U -->|AI, user's own key| GM
   U -->|profile and repos| GH[GitHub API]
 ```
 
@@ -142,12 +141,12 @@ Put your project URL and anon key in `assets/js/supabase-config.js`, then create
 
 Email sign-up uses Supabase's one-time code (OTP) emails, so enable email OTP in the Auth settings.
 
-### Shared AI key (optional)
+### AI key (required for the AI tools)
 
 1. Run `supabase/ai-usage.sql` once in the Supabase SQL Editor (creates the daily usage counter).
 2. In Vercel → Project → Settings → Environment Variables, add `GEMINI_API_KEY` (a key from [aistudio.google.com](https://aistudio.google.com/apikey)) and optionally `AI_DAILY_LIMIT` (default 30), then redeploy.
 
-Without these, the AI tools still work for anyone who adds their own key.
+Only the site owner sets this key. Users never see or enter one.
 
 ### Account page (optional)
 
@@ -167,7 +166,7 @@ Run `supabase/share.sql` once in the SQL Editor. Until then, sharing falls back 
 
 - **XSS protection.** Resume data can arrive from untrusted shared links, so every field is HTML-escaped before rendering. Links are limited to `http`, `https` and `mailto`, and images to `https` or local `data:image` URLs.
 - **No leftover local data.** Resumes are never kept in `localStorage`; signed-out sessions start blank, and data from older versions is purged on load.
-- **Keys stay secret.** The site's Gemini key exists only as a Vercel environment variable and never reaches the browser. A user's own key is stored only in their browser and sent only to Google.
+- **Keys stay secret.** The site's Gemini key exists only as a Vercel environment variable and never reaches the browser. Browsers never talk to Gemini directly.
 - **Security headers** (`vercel.json`): a Content Security Policy that only allows the site's own code and its known CDNs and APIs, plus `X-Frame-Options: DENY` (no clickjacking), `X-Content-Type-Options`, `Referrer-Policy` and `Permissions-Policy`. Third-party libraries are loaded at fixed versions.
 - **Fair AI limit.** Only successful AI answers count towards the daily limit.
 - **No contact details sent to AI.** Email and phone number are left out of everything sent to LanguageTool and Gemini.

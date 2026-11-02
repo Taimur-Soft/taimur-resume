@@ -140,9 +140,8 @@ async function importResumeFile(file) {
     return showImportError('This file is larger than 10 MB.', 'Save your resume again without large pictures, then try again.');
   }
 
-  const apiKey = typeof getGeminiApiKey === 'function' ? getGeminiApiKey() : '';
-  if (!apiKey && !(typeof canUseSiteAI === 'function' && canUseSiteAI())) {
-    return showImportError('Reading a PDF or Word resume uses AI, so you need to sign in first.', 'Or add your own free Gemini key in AI Tools.');
+  if (!(typeof canUseSiteAI === 'function' && canUseSiteAI())) {
+    return showImportError('Reading a PDF or Word resume uses AI, so you need to sign in first.', 'You can still import a JSON backup without signing in.');
   }
 
   const runId = ++importRunId;
@@ -168,7 +167,7 @@ async function importResumeFile(file) {
   setStep('AI is sorting your resume into sections...');
   let data;
   try {
-    data = await extractResumeWithAI(text.slice(0, IMPORT_MAX_TEXT), apiKey, setStep);
+    data = await extractResumeWithAI(text.slice(0, IMPORT_MAX_TEXT), setStep);
     if (cancelled()) return;
   } catch (err) {
     if (cancelled()) return;
@@ -209,11 +208,11 @@ Respond only with JSON in exactly this shape:
 }`;
 }
 
-async function extractResumeWithAI(text, apiKey, onStatus) {
+async function extractResumeWithAI(text, onStatus) {
   const result = await callGeminiWithRetry({
     contents: [{ parts: [{ text: extractionPrompt(text) }] }],
     generationConfig: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'low' } }
-  }, apiKey, onStatus);
+  }, onStatus);
   return normalizeImportedResume(parseGeminiJSON(result));
 }
 

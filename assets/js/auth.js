@@ -75,9 +75,6 @@ function updateAuthUI() {
   const signedIn = document.getElementById('authSignedIn');
   const emailLabel = document.getElementById('authUserEmail');
   if (!signedOut || !signedIn) return;
-  // The AI Tools badge depends on whether the site's free AI is available.
-  if (typeof updateApiKeyStatus === 'function') updateApiKeyStatus();
-
   if (currentUser) {
     signedOut.style.display = 'none';
     signedIn.style.display = 'flex';
@@ -384,13 +381,10 @@ async function authSignIn(email, password) {
 }
 
 // scope 'global' also ends the sessions on every other device.
-async function authSignOut({ scope = 'local', removeKey = false } = {}) {
+async function authSignOut({ scope = 'local' } = {}) {
   const { error } = await supabaseClient.auth.signOut({ scope });
   if (error && scope === 'global') throw error;
   setActiveCloudResumeId(null);
-  if (removeKey) {
-    try { localStorage.removeItem('geminiApiKey'); } catch (e) {}
-  }
   showToast(scope === 'global' ? '✅ Signed out on all devices' : '✅ Signed out', 'success');
 
   // Reload rather than just flipping the nav UI: this is the one place
@@ -403,18 +397,12 @@ async function authSignOut({ scope = 'local', removeKey = false } = {}) {
 
 // ── SIGN-OUT DIALOG ─────────────────────────────────────
 // Saves anything not yet in the cloud first, so signing out right after
-// typing never loses the last edits, and offers to forget the Gemini key
-// (it lives in the browser, not the account).
+// typing never loses the last edits.
 function openSignOutDialog() {
   closeAccountMenu();
   const modal = document.getElementById('signOutModal');
-  const keyRow = document.getElementById('signOutKeyRow');
   const status = document.getElementById('signOutStatus');
   const btn = document.getElementById('signOutConfirmBtn');
-  let hasKey = false;
-  try { hasKey = !!localStorage.getItem('geminiApiKey'); } catch (e) {}
-  keyRow.hidden = !hasKey;
-  document.getElementById('signOutRemoveKey').checked = false;
   status.className = 'hint-text';
   status.textContent = hasUnsyncedChanges()
     ? 'Your latest changes will be saved first.'
@@ -435,7 +423,6 @@ function closeSignOutDialog() {
 async function confirmSignOut(scope = 'local') {
   const status = document.getElementById('signOutStatus');
   const btn = document.getElementById('signOutConfirmBtn');
-  const removeKey = document.getElementById('signOutRemoveKey').checked;
   const force = btn.dataset.force === '1';
 
   if (!force && hasUnsyncedChanges()) {
@@ -458,7 +445,7 @@ async function confirmSignOut(scope = 'local') {
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing out...';
   try {
-    await authSignOut({ scope, removeKey });
+    await authSignOut({ scope });
   } catch (err) {
     status.className = 'field-error-msg';
     status.textContent = '❌ ' + (err.message || 'Could not sign out');
@@ -637,19 +624,12 @@ async function renderAccountAI() {
   const count = document.getElementById('accountAiCount');
   const bar = document.getElementById('accountAiBar');
   const note = document.getElementById('accountAiNote');
-  const keyState = document.getElementById('accountAiKeyState');
-  let ownKey = false;
-  try { ownKey = !!localStorage.getItem('geminiApiKey'); } catch (e) {}
-  keyState.textContent = ownKey
-    ? '✓ Your own key is saved in this browser, so AI here uses it, with no daily limit.'
-    : 'Not set. AI uses the site\'s free key. Add your own free key in AI Tools for unlimited use.';
-
   count.textContent = '…';
   const { used, limit, enabled } = await refreshAIUsage();
   if (enabled === false) {
     count.textContent = 'Off';
     bar.style.width = '0';
-    note.textContent = 'The site\'s free AI is not switched on. Add your own key to use the AI tools.';
+    note.textContent = 'The AI tools are not available right now.';
     return;
   }
   if (used === null || !limit) {
@@ -663,7 +643,7 @@ async function renderAccountAI() {
   bar.style.width = `${Math.round((shown / limit) * 100)}%`;
   bar.dataset.level = shown >= limit ? 'full' : shown / limit >= 0.8 ? 'high' : '';
   note.textContent = shown >= limit
-    ? 'You have used all of today\'s free requests. They reset at midnight (UTC).'
+    ? 'You have used all of today\'s AI requests. They reset at midnight (UTC).'
     : `${limit - shown} left today. Resets at midnight (UTC).`;
 }
 

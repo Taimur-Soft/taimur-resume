@@ -1,8 +1,8 @@
 // Vercel Serverless Function — Gemini proxy for signed-in users
 //
-// Lets people use the AI tools without their own Gemini API key. The site
-// owner's key lives only in the GEMINI_API_KEY environment variable on
-// Vercel and never reaches the browser.
+// The only way the AI tools reach Gemini. The site owner's key lives only
+// in the GEMINI_API_KEY environment variable on Vercel and never reaches
+// the browser; users never see or enter a key.
 //
 // Protection against misuse:
 // - Only signed-in users (a valid Supabase session token is required).
@@ -184,7 +184,7 @@ export default async function handler(req, res) {
   // every request to Google fail before it is even sent.
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) {
-    return res.status(503).json({ error: 'The site\'s AI service is not set up yet. Add your own free Gemini key in AI Tools to use it now.', code: 'not_configured' });
+    return res.status(503).json({ error: 'The AI tools are not available right now. Please try again later.', code: 'not_configured' });
   }
 
   // 1. Who is asking? Must be a signed-in user of this site.
@@ -225,7 +225,7 @@ export default async function handler(req, res) {
     return { ok: r.ok, value: r.ok ? Number(await r.json()) : null };
   };
   const limitReached = () => res.status(429).json({
-    error: `You have used all ${DAILY_LIMIT} free AI requests for today. They reset tomorrow, or add your own free Gemini key in AI Tools for unlimited use.`,
+    error: `You have used all ${DAILY_LIMIT} free AI requests for today. They reset tomorrow.`,
     code: 'daily_limit'
   });
 
@@ -241,7 +241,7 @@ export default async function handler(req, res) {
       const counted = await rpc('use_ai_quota');
       if (!counted.ok) {
         // Fail closed: without the limit, anyone signed in could use up the key.
-        return res.status(503).json({ error: 'The AI usage limit is not set up yet. Add your own free Gemini key in AI Tools to use it now.', code: 'not_configured' });
+        return res.status(503).json({ error: 'The AI tools are not available right now. Please try again later.', code: 'not_configured' });
       }
       used = counted.value;
       if (!(used <= DAILY_LIMIT)) return limitReached();
@@ -269,7 +269,7 @@ export default async function handler(req, res) {
     console.error('Gemini failed:', details);
     // A key problem is the site's, not the user's.
     if (status === 400 || status === 401 || status === 403) {
-      return res.status(502).json({ error: 'The site\'s AI service is not working right now. Try again later, or add your own free Gemini key in AI Tools.', details });
+      return res.status(502).json({ error: 'The AI service is not working right now. Please try again later.', details });
     }
     if (status === 429) {
       return res.status(503).json({ error: 'The free AI service is very busy right now. Please try again in a minute.', details });

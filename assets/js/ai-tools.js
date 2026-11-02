@@ -211,19 +211,6 @@ async function checkGrammar(text) {
 
 
 // ── 3. TONE CHECKER (Google Gemini) ───────────────────
-// "gemini-flash-latest" is Google's alias for the current Flash model, so
-// the tool keeps working when older model versions are retired (as
-// gemini-1.5-flash was). If it stays overloaded, fall back to a smaller
-// model, which usually has spare capacity.
-const GEMINI_MODEL = 'gemini-flash-latest';
-// Tried in order; Google retires old models for new keys (404), so the
-// next one is used automatically.
-const GEMINI_FALLBACK_MODELS = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite'];
-
-// Waits before each retry of the same model (exponential backoff, as
-// Google's troubleshooting guide recommends for 429 / 5xx errors).
-const GEMINI_RETRY_DELAYS_MS = [1000, 2000, 4000];
-
 class GeminiError extends Error {
   constructor(message, status) {
     super(message);
@@ -231,53 +218,19 @@ class GeminiError extends Error {
   }
 }
 
-// 429 (rate limit), 408 (timeout) and 5xx (server busy) are temporary.
-// Others, such as 400/403 for a bad key, will fail the same way every time.
-function isRetryableGeminiStatus(status) {
-  return status === 429 || status === 408 || status >= 500;
-}
-
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-async function callGemini(model, body, apiKey) {
-  let response;
-  try {
-    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: 'POST',
-      // Key goes in a header rather than the URL, so it doesn't end up in
-      // browser history, logs, or error messages that echo the URL.
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify(body)
-    });
-  } catch (e) {
-    throw new GeminiError('Could not reach Gemini. Check your internet connection.', 0);
-  }
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new GeminiError(err.error?.message || `Gemini API error (${response.status})`, response.status);
-  }
-  return response.json();
-}
-
-// Same request without the thinking setting, for models that don't accept
-// it (Gemini 2.5 models, used as the fallback, only know thinkingBudget).
-function withoutThinkingConfig(body) {
-  if (!body.generationConfig?.thinkingConfig) return body;
-  const { thinkingConfig, ...generationConfig } = body.generationConfig;
-  return { ...body, generationConfig };
-}
-
-// No personal key: go through the site's own server (api/gemini.js), which
-// holds the site's key, checks the user is signed in and applies a daily
-// limit. It does the retries and the fallback model itself.
-async function callSiteGemini(body, onStatus = () => {}) {
+// All AI requests go through the site's own server (api/gemini.js). Only
+// the server knows the Gemini key (set by the site owner on Vercel); it
+// checks the user is signed in, applies the daily limit, and does the
+// retries and model fallbacks itself. Users never see or enter a key.
+// onStatus(text) lets the caller show progress while it waits.
+async function callGeminiWithRetry(body, onStatus = () => {}) {
   let token = null;
   try {
     const { data } = await supabaseClient.auth.getSession();
     token = data?.session?.access_token || null;
   } catch (e) { /* treated as signed out below */ }
   if (!token) {
-    const err = new GeminiError('Please sign in to use the AI tools, or add your own free Gemini key in AI Tools.', 401);
+    const err = new GeminiError('Please sign in to use the AI tools.', 401);
     err.site = true;
     throw err;
   }
@@ -305,63 +258,19 @@ async function callSiteGemini(body, onStatus = () => {}) {
     throw err;
   }
   if (data.usage) siteAIUsage = data.usage;
-  updateApiKeyStatus();
   return data;
 }
 
-let siteAIUsage = null; // { used, limit } from the last site AI request today
+let siteAIUsage = null; // { used, limit } from the last AI request today (shown in the account menu)
 
-// Tries the main model with retries, then the fallback model once.
-// onStatus(text) lets the caller show progress while it waits.
-async function callGeminiWithRetry(body, apiKey, onStatus = () => {}) {
-  if (!apiKey) return callSiteGemini(body, onStatus);
-  let lastError;
-  for (let attempt = 0; attempt <= GEMINI_RETRY_DELAYS_MS.length; attempt++) {
-    try {
-      return await callGemini(GEMINI_MODEL, body, apiKey);
-    } catch (e) {
-      lastError = e;
-      // If a future model behind the "latest" alias rejects the thinking
-      // setting (400), drop it and try again straight away.
-      if (e.status === 400 && body.generationConfig?.thinkingConfig) {
-        body = withoutThinkingConfig(body);
-        attempt--;
-        continue;
-      }
-      if (!isRetryableGeminiStatus(e.status)) throw e;
-      if (attempt < GEMINI_RETRY_DELAYS_MS.length) {
-        const wait = GEMINI_RETRY_DELAYS_MS[attempt];
-        onStatus(`Gemini is busy, retrying in ${wait / 1000}s (attempt ${attempt + 2} of ${GEMINI_RETRY_DELAYS_MS.length + 1})...`);
-        await sleep(wait);
-      }
-    }
-  }
-  onStatus('Gemini is still busy, trying a lighter model...');
-  for (const model of GEMINI_FALLBACK_MODELS) {
-    try {
-      return await callGemini(model, withoutThinkingConfig(body), apiKey);
-    } catch (e) {
-      // 404: this model isn't available to this key, try the next one.
-      if (e.status !== 404) break;
-    }
-  }
-  // Report the main model's error: the key already worked there, so a
-  // fallback-only failure (e.g. that model isn't enabled for this key)
-  // shouldn't be shown as "your key is wrong".
-  throw lastError;
-}
-
-// A hint that matches what actually went wrong, instead of always blaming the key.
+// The server already writes a complete, user-facing message; this adds
+// its technical details line, if any.
 function geminiErrorHint(status, err) {
-  // The site's server already writes a complete, user-facing message.
   if (err?.site) return err.details ? `Details: ${err.details}` : '';
-  if (status === 400 || status === 401 || status === 403) return 'Check that your Gemini API key above is correct.';
-  if (status === 429) return 'You have hit the free usage limit for now. Wait a minute and try again.';
-  if (status >= 500) return "Google's servers are busy right now. Your key is fine, please try again in a minute.";
   return 'Please try again.';
 }
 
-async function checkToneWithGemini(text, apiKey, onStatus) {
+async function checkToneWithGemini(text, onStatus) {
   const prompt = `You are a professional resume writing expert. Analyze the following resume content and provide:
 1. Overall tone assessment (Professional/Casual/Weak/Strong)
 2. Top 3 specific improvements for tone and impact
@@ -390,7 +299,7 @@ Respond in this exact JSON format:
     // Newer models spend part of the token budget on internal reasoning,
     // so 1024 tokens could cut the JSON answer off midway.
     generationConfig: { temperature: 0.3, maxOutputTokens: 4096, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'low' } }
-  }, apiKey, onStatus);
+  }, onStatus);
 
   return parseGeminiJSON(data);
 }
@@ -403,22 +312,13 @@ function parseGeminiJSON(data) {
   return JSON.parse(jsonMatch[0]);
 }
 
-// Prefer whatever the user currently has typed in the field — falling back
-// to the previously saved key only if the field is empty. Otherwise typing
-// a new key without clicking "Save" would silently keep using the old one.
-function getGeminiApiKey() {
-  const typed = document.getElementById('geminiApiKey')?.value.trim();
-  if (typed) return typed;
-  try { return localStorage.getItem('geminiApiKey') || ''; } catch (e) { return ''; }
-}
-
 
 // ── 4. AI MATCH ANALYSIS (Gemini) ─────────────────────
 // The keyword score above only counts exact word matches. This asks Gemini
 // to compare meaning instead ("JS" = "JavaScript", "led a team" = "people
 // management"), name the skills that are really missing, and rewrite weak
 // bullet points for this specific job.
-async function analyzeJobMatchWithGemini(resumeText, jobDesc, apiKey, onStatus) {
+async function analyzeJobMatchWithGemini(resumeText, jobDesc, onStatus) {
   const prompt = `You are an experienced recruiter and ATS (applicant tracking system) expert.
 Compare the candidate's resume with the job description and judge how well they fit, based on meaning rather than exact wording. Treat synonyms, abbreviations and related technologies as matches (for example "JS" and "JavaScript", "Postgres" and "PostgreSQL").
 
@@ -452,7 +352,7 @@ Respond only with JSON in exactly this shape:
   const data = await callGeminiWithRetry({
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: { temperature: 0.2, maxOutputTokens: 8192, responseMimeType: 'application/json' }
-  }, apiKey, onStatus);
+  }, onStatus);
 
   return parseGeminiJSON(data);
 }
@@ -468,9 +368,8 @@ async function checkATSWithAI() {
     showToast('Please fill in more of your resume first', 'error');
     return;
   }
-  const apiKey = getGeminiApiKey();
-  if (!apiKey && !canUseSiteAI()) {
-    showToast('Sign in to use the AI tools, or add your own free Gemini key in AI Tools', 'error');
+  if (!canUseSiteAI()) {
+    showToast('Please sign in to use the AI tools', 'error');
     return;
   }
 
@@ -488,7 +387,7 @@ async function checkATSWithAI() {
   if (btn) btn.disabled = true;
 
   try {
-    const result = await analyzeJobMatchWithGemini(resumeText, jobDesc, apiKey, showLoading);
+    const result = await analyzeJobMatchWithGemini(resumeText, jobDesc, showLoading);
     resultDiv.innerHTML = renderAIMatch(result);
   } catch (e) {
     resultDiv.innerHTML = `<div class="tone-error">⚠️ ${escapeHTML(e.message)}<br><small>${escapeHTML(geminiErrorHint(e.status, e))}</small></div>`;
@@ -572,9 +471,8 @@ async function improveDescription(btn) {
     field.focus();
     return;
   }
-  const apiKey = getGeminiApiKey();
-  if (!apiKey && !canUseSiteAI()) {
-    showToast('Sign in to use AI, or add your own free Gemini key in AI Tools', 'error');
+  if (!canUseSiteAI()) {
+    showToast('Please sign in to use AI', 'error');
     return;
   }
 
@@ -617,7 +515,7 @@ Respond only with JSON: {"bullets": ["...", "..."]}`;
       // A short rewrite needs little reasoning; "low" thinking answers much
       // faster than the model's default ("medium").
       generationConfig: { temperature: 0.4, maxOutputTokens: 2048, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'low' } }
-    }, apiKey, setLoading);
+    }, setLoading);
     const bullets = (parseGeminiJSON(data).bullets || [])
       .map(b => String(b).replace(/^[\s•\-*]+/, '').trim())
       .filter(Boolean)
@@ -654,7 +552,6 @@ Respond only with JSON: {"bullets": ["...", "..."]}`;
 
 // ── COMBINED: Grammar + Tone ───────────────────────────
 async function checkGrammarAndTone() {
-  const apiKey = getGeminiApiKey();
   const resumeText = getResumeText();
 
   if (!resumeText || resumeText.trim().length < 50) {
@@ -688,9 +585,9 @@ async function checkGrammarAndTone() {
     let toneData = null;
     let toneError = null;
     let toneErrorHint = '';
-    if (apiKey || canUseSiteAI()) {
+    if (canUseSiteAI()) {
       try {
-        toneData = await checkToneWithGemini(resumeText, apiKey, showLoading);
+        toneData = await checkToneWithGemini(resumeText, showLoading);
       } catch (e) {
         toneError = e.message;
         toneErrorHint = geminiErrorHint(e.status, e);
@@ -752,7 +649,7 @@ async function checkGrammarAndTone() {
         </div>`
       : toneError
         ? `<div class="tone-error">⚠️ Gemini: ${escapeHTML(toneError)}<br><small>${escapeHTML(toneErrorHint)}</small></div>`
-        : `<div class="tone-error">ℹ️ Sign in (or add your own Gemini key above) to get the AI tone analysis too</div>`;
+        : `<div class="tone-error">ℹ️ Sign in to get the AI tone analysis too</div>`;
 
     resultDiv.innerHTML = grammarHtml + fixesHtml + toneHtml;
 
@@ -761,59 +658,11 @@ async function checkGrammarAndTone() {
   }
 }
 
-function getSavedApiKey() {
-  try { return localStorage.getItem('geminiApiKey') || ''; } catch (e) { return ''; }
-}
-
-// Signed-in users can use the site's AI (api/gemini.js) without a key.
+// Signed-in users can use the AI tools (through api/gemini.js).
 function canUseSiteAI() {
   return typeof currentUser !== 'undefined' && !!currentUser;
 }
 
-// Badge next to the key box: own key saved / typed but not saved / using
-// the site's free AI / nothing available.
-function updateApiKeyStatus() {
-  const status = document.getElementById('aiKeyStatus');
-  const input = document.getElementById('geminiApiKey');
-  if (!status || !input) return;
-  const typed = input.value.trim();
-  const saved = getSavedApiKey();
-  let state = 'none', text = 'Sign in to use AI';
-  let title = 'Sign in to use the AI tools for free, or add your own Gemini key.';
-  if (typed && typed === saved) { state = 'saved'; text = '✓ Your key'; title = 'Using your own Gemini key (no daily limit).'; }
-  else if (typed) { state = 'unsaved'; text = 'Not saved yet'; title = 'Click Save to keep this key in this browser.'; }
-  else if (canUseSiteAI()) {
-    state = 'saved';
-    text = siteAIUsage ? `✓ Free AI · ${Math.max(0, siteAIUsage.limit - siteAIUsage.used)} left today` : '✓ Free AI on';
-    title = 'Using the site\'s AI. No key needed. There is a small daily limit per account.';
-  }
-  status.dataset.state = state;
-  status.textContent = text;
-  status.title = title;
-}
-
-function saveApiKey() {
-  const key = document.getElementById('geminiApiKey').value.trim();
-  try {
-    if (key) {
-      localStorage.setItem('geminiApiKey', key);
-      showToast('✅ API key saved in this browser', 'success');
-    } else {
-      localStorage.removeItem('geminiApiKey');
-      showToast('API key removed from this browser', 'info');
-    }
-  } catch (e) {
-    showToast('❌ Could not save the key in this browser', 'error');
-  }
-  updateApiKeyStatus();
-}
-
-// Load saved API key on page load
-document.addEventListener('DOMContentLoaded', () => {
-  const el = document.getElementById('geminiApiKey');
-  if (!el) return;
-  const saved = getSavedApiKey();
-  if (saved) el.value = saved;
-  el.addEventListener('input', updateApiKeyStatus);
-  updateApiKeyStatus();
-});
+// Older versions let users save their own Gemini key in the browser.
+// That option is gone, so forget any key left over from then.
+try { localStorage.removeItem('geminiApiKey'); } catch (e) {}
