@@ -486,6 +486,7 @@ function toggleAccountMenu() {
 }
 
 function openAccountMenu() {
+  if (typeof closeExportMenu === 'function') closeExportMenu();
   const panel = document.getElementById('accountMenuPanel');
   const btn = document.getElementById('accountMenuBtn');
   updateNavAvatar();

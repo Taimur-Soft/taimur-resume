@@ -62,9 +62,20 @@
       <button onclick="importJSON()" class="btn-icon" title="Import a resume: PDF, Word (.docx) or a JSON file from Export / backup">
         <i class="fas fa-upload"></i> Import
       </button>
-      <button onclick="exportJSON()" class="btn-icon" title="Export resume as JSON">
-        <i class="fas fa-download"></i> Export
-      </button>
+      <div class="account-menu export-menu" id="exportMenu">
+        <button id="exportMenuBtn" class="btn-icon" onclick="toggleExportMenu()" aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenuPanel" title="Download your resume in other formats">
+          <i class="fas fa-download"></i> Export <i class="fas fa-chevron-down account-menu-caret" aria-hidden="true"></i>
+        </button>
+        <div id="exportMenuPanel" class="account-menu-panel export-menu-panel" role="menu" hidden>
+          <div class="export-menu-head">Export as <small>For PDF, use <strong>Download PDF</strong></small></div>
+          <button type="button" role="menuitem" onclick="exportResumeAs('docx')"><i class="fas fa-file-word"></i><span><strong>Word (.docx)</strong><small>Edit in Word or Google Docs</small></span></button>
+          <button type="button" role="menuitem" onclick="exportResumeAs('txt')"><i class="fas fa-file-lines"></i><span><strong>Plain text (.txt)</strong><small>Paste into job application forms</small></span></button>
+          <button type="button" role="menuitem" onclick="exportResumeAs('europass')"><i class="fas fa-earth-europe"></i><span><strong>Europass XML</strong><small>Import at europass.europa.eu</small></span></button>
+          <button type="button" role="menuitem" onclick="exportResumeAs('html')"><i class="fas fa-globe"></i><span><strong>Web page (.html)</strong><small>Same design, for your own website</small></span></button>
+          <div class="account-menu-sep" role="separator"></div>
+          <button type="button" role="menuitem" onclick="exportResumeAs('json')"><i class="fas fa-floppy-disk"></i><span><strong>Backup (.json)</strong><small>Restore later with Import</small></span></button>
+        </div>
+      </div>
       <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Switch to dark mode" title="Switch to dark mode"><i class="fas fa-moon"></i></button>
       <button onclick="exportPDF()" id="downloadPdfBtn" class="btn-primary" title="Download as PDF">
         <i class="fas fa-file-pdf"></i> Download PDF
@@ -756,6 +767,7 @@
   <script src="assets/js/supabase-config.js"></script>
   <script src="assets/js/auth.js"></script>
   <script src="assets/js/resume-import.js"></script>
+  <script src="assets/js/resume-export.js"></script>
   <script src="assets/js/app.js"></script>
 
 </body>
