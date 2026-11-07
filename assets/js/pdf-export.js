@@ -61,7 +61,8 @@ function pdfStyleResume(el, w, tight = 0) {
   Object.assign(el.style, {
     width: w + 'px', maxWidth: w + 'px', minWidth: w + 'px',
     minHeight: pdfPageH(w) + 'px', height: 'auto', flex: 'none',
-    fontSize: '11px', boxShadow: 'none', borderRadius: '0', margin: '0'
+    fontSize: '11px', boxShadow: 'none', borderRadius: '0', margin: '0',
+    transform: 'none' // the live preview is scaled down; copies are measured full size
   });
 }
 
@@ -188,9 +189,94 @@ function pdfPlan(m, w) {
 // The most comfortable layout (largest text, most space) that reaches the
 // fewest pages any layout can: one page whenever the CV can fit on one.
 function pdfChooseLayout(preview) {
-  const tried = PDF_LAYOUTS.map(l => ({ ...l, pages: pdfPlan(pdfMeasureLive(preview, l.w, l.tight), l.w).pages }));
+  const tried = [];
+  for (const l of PDF_LAYOUTS) {
+    const t = { ...l, pages: pdfPlan(pdfMeasureLive(preview, l.w, l.tight), l.w).pages };
+    // One page can't be beaten: the first (most comfortable) layout that
+    // fits on one is the answer, no need to measure the rest.
+    if (t.pages <= 1) return t;
+    tried.push(t);
+  }
   const fewest = Math.min(...tried.map(t => t.pages));
   return tried.find(t => t.pages === fewest);
+}
+
+// ── LIVE PREVIEW = THE PDF ─────────────────────────────
+// The preview is laid out exactly like the PDF (same width, same compact
+// level, same column balance) and then scaled down to fit its panel, like
+// a page thumbnail. What you see is what you download. On several pages a
+// dashed line shows where each page ends.
+function pdfPreviewFrame(preview) {
+  let frame = preview.parentElement;
+  if (!frame || !frame.classList.contains('preview-page-frame')) {
+    frame = document.createElement('div');
+    frame.className = 'preview-page-frame';
+    preview.parentElement.insertBefore(frame, preview);
+    frame.appendChild(preview);
+    if (typeof ResizeObserver === 'function') {
+      new ResizeObserver(() => pdfScalePreview(preview)).observe(frame.parentElement);
+    } else {
+      window.addEventListener('resize', () => pdfScalePreview(preview));
+    }
+  }
+  return frame;
+}
+
+// Scales the laid-out page to the width available for it.
+function pdfScalePreview(preview) {
+  const frame = preview.parentElement;
+  const w = parseFloat(preview.dataset.pdfW);
+  if (!frame || !frame.classList.contains('preview-page-frame') || !w) return;
+  const box = frame.parentElement;
+  const cs = getComputedStyle(box);
+  const room = box.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+  if (room <= 0) return; // hidden (e.g. the phone's form tab): rescaled when it shows
+  const s = Math.min(1, room / w);
+  preview.style.transformOrigin = 'top left';
+  preview.style.transform = `scale(${s})`;
+  frame.style.width = (w * s) + 'px';
+  frame.style.height = (preview.offsetHeight * s) + 'px';
+  frame.querySelectorAll('.preview-page-break').forEach(line => {
+    line.style.top = (parseFloat(line.dataset.y) * s) + 'px';
+    line.style.left = (parseFloat(line.dataset.x) * s) + 'px';
+    line.style.width = (parseFloat(line.dataset.w) * s) + 'px';
+  });
+}
+
+function fitPreviewToPdf(preview) {
+  if (!preview || !preview.querySelector('.rv-eu')) return;
+  const frame = pdfPreviewFrame(preview);
+  const layout = pdfChooseLayout(preview);
+  pdfStyleResume(preview, layout.w, layout.tight);
+  pdfBalance(preview);
+  const pageH = pdfPageH(layout.w);
+  preview.style.minHeight = (pageH * Math.max(1, layout.pages)) + 'px';
+  preview.dataset.pdfW = layout.w;
+  preview.dataset.pdfPages = layout.pages;
+
+  // Where the PDF really breaks: each column on its own, never inside an
+  // entry (pdfPlan), so a dashed line per column, labelled once per page.
+  frame.querySelectorAll('.preview-page-break').forEach(n => n.remove());
+  if (layout.pages > 1) {
+    const plan = pdfPlan(pdfMeasureLive(preview, layout.w, layout.tight), layout.w);
+    const widest = plan.cols.reduce((a, c) => (c.x1 - c.x0 > a.x1 - a.x0 ? c : a), plan.cols[0]);
+    plan.cols.forEach(c => {
+      for (let n = 1; n < c.breaks.length - 1; n++) {
+        const line = document.createElement('div');
+        line.className = 'preview-page-break';
+        Object.assign(line.dataset, { x: c.x0, w: c.x1 - c.x0, y: c.top + c.breaks[n].y });
+        if (c === widest) line.innerHTML = `<span>Page ${n + 1}</span>`;
+        frame.appendChild(line);
+      }
+    });
+  }
+  pdfScalePreview(preview);
+
+  // Web fonts change line breaks: lay out again once they have loaded.
+  if (document.fonts && document.fonts.status !== 'loaded' && !preview.dataset.fontRefit) {
+    preview.dataset.fontRefit = '1';
+    document.fonts.ready.then(() => fitPreviewToPdf(preview));
+  }
 }
 
 // Years of work experience (overlapping jobs counted once) and number of
@@ -326,6 +412,10 @@ async function exportPDF() {
     const renderScale = Math.min(PDF_TARGET_PX / W, Math.sqrt(PDF_MAX_CANVAS_PIXELS / (W * estH * 1.05)));
 
     let measured = null;
+    // html2canvas sizes its canvas from the element on the page: show the
+    // scaled-down preview at full size while it is drawn.
+    const shownTransform = preview.style.transform;
+    preview.style.transform = 'none';
     const canvas = await html2canvas(preview, {
       scale: renderScale,
       useCORS: true,
@@ -343,7 +433,7 @@ async function exportPDF() {
         measured = pdfMeasure(el, W); // measured where it is drawn, so breaks match exactly
         try { measured.text = pdfCollectText(el); } catch (e) { measured.text = []; }
       }
-    });
+    }).finally(() => { preview.style.transform = shownTransform; });
 
     const s = canvas.width / W; // canvas px per CSS px
     const { cols, pages } = pdfPlan(measured, W);

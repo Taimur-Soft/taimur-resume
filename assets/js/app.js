@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // One-time cleanup: purge any resume data a pre-fix version of this app
   // left sitting in this browser's local storage, so it can't leak either.
   try { localStorage.removeItem('tr_resume_data'); } catch (e) {}
+  // view.html and print.html reuse this file without the editor's form.
+  if (!document.getElementById('experience-container')) return;
   initSortableSections();
   addInitialItems();
   applyRequestedTemplate();
@@ -169,6 +171,8 @@ function renderCV() {
 
   preview.innerHTML = buildResumeHTML(data);
   balanceResumeColumns(preview);
+  // Same layout as the PDF, scaled to the panel (pdf-export.js).
+  if (typeof fitPreviewToPdf === 'function') fitPreviewToPdf(preview);
 
   calculateProgress();
 
