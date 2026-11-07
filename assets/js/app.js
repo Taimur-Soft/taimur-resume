@@ -1731,3 +1731,113 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 300);
   }, 3000);
 }
+
+// ── RESIZABLE PREVIEW PANEL ────────────────────────────
+// Drag the preview panel's left edge to make the preview wider or narrower
+// (or focus the handle and use ← / →, Shift for bigger steps); double-click
+// goes back to the default width. The width is remembered in this browser:
+// a display setting, not resume data. Desktop only (on phones the panels
+// are stacked).
+const PREVIEW_RESIZE = { key: 'tr_preview_w', min: 320, minForm: 360, step: 20 };
+
+function previewWidthLimits() {
+  const sidebar = document.querySelector('.app-sidebar')?.getBoundingClientRect().width || 0;
+  const max = Math.max(PREVIEW_RESIZE.min, window.innerWidth - sidebar - PREVIEW_RESIZE.minForm);
+  return { min: PREVIEW_RESIZE.min, max };
+}
+
+function currentPreviewWidth() {
+  return document.querySelector('.app-preview-panel')?.getBoundingClientRect().width || 460;
+}
+
+function savedPreviewWidth() {
+  try { return parseFloat(localStorage.getItem(PREVIEW_RESIZE.key)) || null; } catch (e) { return null; }
+}
+
+// The page inside follows at once (its ResizeObserver only runs on the
+// next painted frame).
+function rescalePreviewPage() {
+  const preview = document.getElementById('resumePreview');
+  if (preview && typeof pdfScalePreview === 'function') pdfScalePreview(preview);
+}
+
+function setPreviewWidth(w, save) {
+  const root = document.documentElement;
+  const handle = document.getElementById('previewResizer');
+  if (window.innerWidth <= 768) { root.style.removeProperty('--preview-w'); rescalePreviewPage(); return; }
+  const { min, max } = previewWidthLimits();
+  w = Math.round(Math.min(max, Math.max(min, w)));
+  root.style.setProperty('--preview-w', w + 'px');
+  if (handle) {
+    handle.setAttribute('aria-valuemin', min);
+    handle.setAttribute('aria-valuemax', max);
+    handle.setAttribute('aria-valuenow', w);
+  }
+  rescalePreviewPage();
+  if (save) { try { localStorage.setItem(PREVIEW_RESIZE.key, String(w)); } catch (e) {} }
+}
+
+function resetPreviewWidth() {
+  document.documentElement.style.removeProperty('--preview-w');
+  try { localStorage.removeItem(PREVIEW_RESIZE.key); } catch (e) {}
+  const handle = document.getElementById('previewResizer');
+  if (handle) handle.setAttribute('aria-valuenow', Math.round(currentPreviewWidth()));
+  rescalePreviewPage();
+}
+
+function initPreviewResizer() {
+  const panel = document.querySelector('.app-preview-panel');
+  if (!panel || document.getElementById('previewResizer')) return;
+
+  const handle = document.createElement('div');
+  handle.id = 'previewResizer';
+  handle.className = 'preview-resizer';
+  handle.tabIndex = 0;
+  handle.title = 'Drag to resize the preview (double-click to reset)';
+  handle.setAttribute('role', 'separator');
+  handle.setAttribute('aria-orientation', 'vertical');
+  handle.setAttribute('aria-label', 'Resize the preview panel');
+  panel.appendChild(handle);
+
+  const saved = savedPreviewWidth();
+  if (saved) setPreviewWidth(saved, false);
+  handle.setAttribute('aria-valuenow', Math.round(currentPreviewWidth()));
+
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+    document.body.classList.add('is-resizing-preview');
+    const move = (ev) => setPreviewWidth(window.innerWidth - ev.clientX, false);
+    const end = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', end);
+      handle.removeEventListener('pointercancel', end);
+      document.body.classList.remove('is-resizing-preview');
+      setPreviewWidth(currentPreviewWidth(), true);
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+  });
+
+  handle.addEventListener('dblclick', resetPreviewWidth);
+
+  handle.addEventListener('keydown', (e) => {
+    const step = PREVIEW_RESIZE.step * (e.shiftKey ? 3 : 1);
+    const { min, max } = previewWidthLimits();
+    // The panel sits on the right: moving its edge left makes it wider.
+    const target = { ArrowLeft: currentPreviewWidth() + step, ArrowRight: currentPreviewWidth() - step, Home: max, End: min }[e.key];
+    if (target === undefined) return;
+    e.preventDefault();
+    setPreviewWidth(target, true);
+  });
+
+  // A smaller window may no longer have room for the saved width.
+  window.addEventListener('resize', () => {
+    const w = savedPreviewWidth();
+    if (w) setPreviewWidth(w, false);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initPreviewResizer);

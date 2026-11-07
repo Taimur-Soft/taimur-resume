@@ -9,7 +9,7 @@ A free, browser-based resume builder with a live preview, 15 Europass-format tem
 ## Features
 
 ### Building the resume
-- **Live split-view preview that matches the PDF.** The resume re-renders as you type, next to the form. It is laid out exactly like the downloaded PDF (same width, compact level and column balance) and scaled down to fit the panel as an A4 sheet; on a multi-page CV a dashed line marks where each page ends.
+- **Live split-view preview that matches the PDF.** The resume re-renders as you type, next to the form. It is laid out exactly like the downloaded PDF (same width, compact level and column balance) and scaled down to fit the panel as an A4 sheet; on a multi-page CV a dashed line marks where each page ends. Drag the panel's left edge (or use the arrow keys on it) to make the preview wider or narrower; double-click resets it, and the width is remembered.
 - **15 Europass-format templates.** One EU-recognized structure in three layouts and 15 looks:
   - *Sidebar:* Aurora, Emerald, Slate, Coral, Ivory
   - *Banner:* Sunrise, Horizon, Blossom, Nordic, Velvet
