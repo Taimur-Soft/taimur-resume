@@ -693,7 +693,9 @@ input[type="range"].form-input { padding: 4px 0; border: none; box-shadow: none;
 
 /* ── LAYOUT 3: TIMELINE (Pulse · Meridian · Zenith · Canvas · Quartz) ── */
 .rv-eu-timeline { padding: 28px; font-family: var(--eu-body-font, 'Inter', sans-serif); background: var(--eu-surface, #fff); }
-.rv-eu-timeline .eu-tl-header { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 2px solid var(--resume-accent); }
+/* Photo top-aligned with the name: centred, it slid down as the contact
+   line wrapped onto more rows. */
+.rv-eu-timeline .eu-tl-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 2px solid var(--resume-accent); }
 .rv-eu-timeline .eu-tl-header .eu-photo { width: 64px; height: 64px; border-radius: var(--eu-photo-radius, 12px); flex-shrink: 0; border: 2px solid var(--resume-accent); }
 .rv-eu-timeline .eu-tl-header .eu-photo-placeholder { background: #f1f5f9; color: #94a3b8; font-size: 22px; }
 .rv-eu-timeline h1 { font-size: 19px; font-weight: 800; font-family: var(--eu-heading-font, 'Inter', sans-serif); color: var(--eu-heading-color, #0f172a); }
