@@ -66,19 +66,28 @@ function rateLimited(ip) {
   return list.length > RATE_LIMIT.max;
 }
 
-// The server has no fonts for Bangla script; Chrome finds any font placed
-// in /tmp/fonts (see @sparticuz/chromium). Noto Sans Bengali, as TrueType
-// (Google Fonts serves .ttf to simple clients).
-async function ensureBanglaFont() {
+// The server only has a Latin font. Chrome also finds fonts placed in
+// /tmp/fonts (see @sparticuz/chromium), so the missing scripts are fetched
+// once per instance, as TrueType (Google Fonts serves .ttf to simple
+// clients): Bangla, and the arrows the templates use (↗ before project
+// links, →).
+const EXTRA_FONTS = [
+  { file: 'NotoSansBengali', query: 'Noto+Sans+Bengali:wght@400;700' },
+  { file: 'NotoSansMath', query: 'Noto+Sans+Math' }
+];
+
+async function ensureFonts() {
   const dir = '/tmp/fonts';
-  try { await access(`${dir}/NotoSansBengali-400.ttf`); return; } catch (e) {}
-  const css = await (await fetch('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;700',
-    { headers: { 'User-Agent': 'Mozilla/4.0' } })).text();
-  const faces = [...css.matchAll(/font-weight:\s*(\d+);[\s\S]*?url\((https:[^)]+\.ttf)\)/g)];
   await mkdir(dir, { recursive: true });
-  await Promise.all(faces.map(async ([, weight, url]) => {
-    const res = await fetch(url);
-    if (res.ok) await writeFile(`${dir}/NotoSansBengali-${weight}.ttf`, Buffer.from(await res.arrayBuffer()));
+  await Promise.all(EXTRA_FONTS.map(async ({ file, query }) => {
+    try { await access(`${dir}/${file}-400.ttf`); return; } catch (e) {}
+    const css = await (await fetch(`https://fonts.googleapis.com/css2?family=${query}`,
+      { headers: { 'User-Agent': 'Mozilla/4.0' } })).text();
+    const faces = [...css.matchAll(/font-weight:\s*(\d+);[\s\S]*?url\((https:[^)]+\.ttf)\)/g)];
+    await Promise.all(faces.map(async ([, weight, url]) => {
+      const res = await fetch(url);
+      if (res.ok) await writeFile(`${dir}/${file}-${weight}.ttf`, Buffer.from(await res.arrayBuffer()));
+    }));
   }));
 }
 
@@ -93,7 +102,7 @@ async function getBrowser() {
   browserPromise = (async () => {
     chromium.setGraphicsMode = false;
     const executablePath = await chromium.executablePath();
-    try { await ensureBanglaFont(); } catch (e) { console.warn('Bangla font not available:', e.message); }
+    try { await ensureFonts(); } catch (e) { console.warn('Extra fonts not available:', e.message); }
     return puppeteer.launch({
       args: await puppeteer.defaultArgs({ args: chromium.args, headless: 'shell' }),
       defaultViewport: { width: 1400, height: 1000, deviceScaleFactor: 1 },
