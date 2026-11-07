@@ -41,7 +41,7 @@ A free, browser-based resume builder with a live preview, 15 Europass-format tem
 - **Demo mode** for signed-out visitors. Nothing is stored, so no data is left behind on shared computers.
 
 ### Export and sharing
-- **PDF download** as paginated A4 (html2canvas + jsPDF), with browser print as a fallback.
+- **Vector PDF download.** A server function (`api/pdf.js`) prints the resume in headless Chrome (Puppeteer), the way professional resume sites do: real text and shapes that stay sharp at any zoom, a small file, and text that ATS systems read directly. A4, 1 page whenever the CV fits (2 at most for long careers, Europass advice), and in two-column templates each column continues on the next page on its own with its colour running to the page edge. If the server is unreachable, the browser builds a picture-based PDF itself (html2canvas + jsPDF with a hidden text layer), and browser print is the last fallback.
 - **Import from PDF, Word (.docx) or JSON.** PDF and Word text is read in the browser (pdf.js, mammoth.js, loaded only when needed); Gemini sorts it into the builder's sections using only what the file says, and a preview shows what was found before it opens as a new resume. JSON accepts a single exported resume or a full account backup.
 - **Export menu:** Word (.docx, clean ATS-friendly layout), plain text, **Europass XML** (SkillsPassport V3.3, for the Europass portal), a stand-alone web page with the chosen template's design, and a JSON backup. Built in the browser (JSZip for Word, loaded only when needed).
 - **Private share links.** Signed-in users get a short link (`view.html?r=CODE`) stored in their own Supabase (`supabase/share.sql`): it always shows the latest version, counts views, can hide phone and address, and can be turned off. Signed out, the resume (without the photo) is packed into the link itself with lz-string.
@@ -58,6 +58,7 @@ A free, browser-based resume builder with a live preview, 15 Europass-format tem
 | Serverless API | Vercel Serverless Functions (Node.js) |
 | Hosting | [Vercel](https://vercel.com), auto-deployed from `main` |
 | AI and language | Google Gemini API, LanguageTool API |
+| PDF | Puppeteer + headless Chromium (`@sparticuz/chromium`) on Vercel; html2canvas + jsPDF as the in-browser fallback |
 | Libraries | SortableJS, html2canvas, jsPDF, lz-string, qrcode.js, Font Awesome, Google Fonts |
 
 ---
@@ -73,13 +74,16 @@ flowchart LR
   U -->|grammar| L[LanguageTool API]
   U -->|AI, signed in| AI[/api/gemini/]
   AI -->|site key, daily limit| GM[Google Gemini API]
+  U -->|resume data| P[/api/pdf/]
+  P -->|headless Chrome opens print.html| V
   U -->|profile and repos| GH[GitHub API]
 ```
 
-Most of the app runs in the browser. The server code is two small functions:
+Most of the app runs in the browser. The server code is three small functions:
 
 - `api/shorten.js` proxies is.gd to avoid CORS errors and only shortens this site's own resume links (`/view.html`), so it can't be used by others as a free shortener.
 - `api/gemini.js` calls Gemini with the site's key for signed-in users. It verifies the Supabase session, counts each request against a daily limit (`supabase/ai-usage.sql`), and only forwards plain text prompts to a fixed list of models (`gemini-flash-latest`, with lighter Flash-Lite models as fallbacks).
+- `api/pdf.js` makes the vector PDF. It accepts resume data (JSON, never HTML), opens the site's own `print.html` in headless Chrome, where the same `app.js` code builds and escapes the resume and picks the 1-page layout, and prints it to A4. The browser may only load the site, its font/icon CDNs and Supabase photos (every other request is blocked); requests are size- and rate-limited. The resume is kept in memory only while the PDF is made, never stored or logged (GDPR).
 
 ---
 
@@ -89,8 +93,11 @@ Most of the app runs in the browser. The server code is two small functions:
 ├── index.html              Landing page
 ├── resume.html             The builder (form, preview, modals)
 ├── view.html               Read-only page for shared resume links
+├── print.html              Print page the PDF function opens in headless Chrome
+├── package.json            Server dependencies (Puppeteer, Chromium for Vercel)
 ├── api/
 │   ├── gemini.js           Gemini proxy for signed-in users (site key, daily limit)
+│   ├── pdf.js              Vector PDF (headless Chrome prints print.html)
 │   └── shorten.js          Serverless URL shortener (is.gd proxy)
 ├── supabase/
 │   ├── ai-usage.sql        Daily AI usage counter (run once in Supabase)

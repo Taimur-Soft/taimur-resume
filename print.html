@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Resume</title>
+  <!--
+    Print page for the vector PDF (api/pdf.js).
+    The server opens this page in headless Chrome, calls renderForPrint(data)
+    and prints it. Chrome then writes real text and shapes into the PDF
+    (sharp at any zoom, small file, text that ATS systems read directly),
+    instead of a picture of the page.
+    The same app.js and pdf-export.js code as the editor builds the resume,
+    picks the 1-page layout and balances the columns, so the result matches
+    the preview. For a manual check: print.html#<lz-string data>.
+  -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;600;700&family=Poppins:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Lora:wght@400;500;600;700&display=block" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="assets/css/theme.css">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <style>
+    @page { size: A4; margin: 0; }
+    /* Only the page (html) is white: the body's own background would be
+       painted over the page-colour layers of a multi-page CV. */
+    html { background: #fff; }
+    html, body { margin: 0; padding: 0; }
+    body { background: transparent; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    #printRoot { width: max-content; }
+    #printRoot .resume-preview { box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; }
+    /* Backgrounds and side columns run to the bottom edge of the paper. */
+    #printRoot .resume-preview { display: flex; flex-direction: column; }
+    #printRoot .resume-preview > .rv-eu { flex: 1 0 auto; }
+
+    /* Several pages: keep entries, short blocks and titles with their
+       first entry together. Each column of a two-column layout breaks on
+       its own; padding repeats at every page edge so continued text never
+       touches the paper edge. */
+    #printRoot.multi .eu-item, #printRoot.multi .eu-lang-table, #printRoot.multi .eu-lang-mother,
+    #printRoot.multi .eu-skill, #printRoot.multi .eu-skill-tags, #printRoot.multi .eu-contact-item,
+    #printRoot.multi tr, #printRoot.multi img { break-inside: avoid; }
+    #printRoot.multi .eu-section > h3, #printRoot.multi .eu-section > h2 { break-after: avoid; }
+    #printRoot.multi .eu-main, #printRoot.multi .eu-side, #printRoot.multi .eu-side-col,
+    #printRoot.multi .rv-eu-timeline {
+      -webkit-box-decoration-break: clone; box-decoration-break: clone;
+    }
+    #printRoot.multi p { orphans: 2; widows: 2; }
+  </style>
+</head>
+<body>
+  <div id="printRoot"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/pdf-export.js"></script>
+  <script>
+    // A4 is 793.7 CSS px wide. The resume is laid out at the PDF width the
+    // editor uses (600–660 px, text at 9–11 pt) and printed scaled up to
+    // the paper.
+    const A4_CSS_W = 210 / 25.4 * 96;
+
+    async function settle(el) {
+      void el.offsetHeight; // start font loads for the text that is shown
+      if (document.fonts?.ready) await document.fonts.ready;
+      await Promise.all([...el.querySelectorAll('img')].map(img =>
+        img.complete ? null : new Promise(r => { img.onload = img.onerror = r; })));
+      if (document.fonts?.ready) await document.fonts.ready;
+    }
+
+    // Several pages: the resume's and each column's background, as layers
+    // fixed to the page. Chrome repeats fixed elements on every printed
+    // page, so the colours run from the top to the bottom edge of each
+    // sheet, including the last one, however the text breaks.
+    function addPageFills(el, root) {
+      const er = el.getBoundingClientRect();
+      const grid = el.querySelector('.rv-eu-sidebar, .eu-body');
+      const parts = [el, el.querySelector('.rv-eu'), ...(grid ? grid.children : [])].filter(Boolean);
+      const painted = [];
+      for (const part of parts) {
+        const cs = getComputedStyle(part);
+        const hasColour = cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent';
+        if (!hasColour && cs.backgroundImage === 'none') continue;
+        const r = part.getBoundingClientRect();
+        const fill = document.createElement('div');
+        fill.className = 'print-fill';
+        fill.style.cssText = `position:fixed;top:0;bottom:0;left:${r.left - er.left}px;width:${r.width}px;z-index:-1`;
+        fill.style.backgroundColor = cs.backgroundColor;
+        fill.style.backgroundImage = cs.backgroundImage;
+        root.appendChild(fill);
+        painted.push(part);
+      }
+      // Only the page layers show the colours: a column's own background
+      // ending mid-page would leave a hairline seam against its layer.
+      painted.forEach(part => { part.style.background = 'transparent'; });
+    }
+
+    // Builds the resume for printing; returns { pages, w, tight, scale }.
+    window.renderForPrint = async function (raw) {
+      const data = stripSensitiveItems(raw || {}) || {};
+      const t = /^[a-z]+$/.test(data.template || '') ? data.template : 'aurora';
+      currentTemplate = t;
+
+      const root = document.getElementById('printRoot');
+      root.innerHTML = '';
+      const el = document.createElement('div');
+      el.id = 'resumePreview';
+      el.className = `resume-preview template-${t}`;
+      el.innerHTML = buildResumeHTML(data);
+      root.appendChild(el);
+      await settle(el);
+
+      // Same choice as the in-browser PDF: the most comfortable layout that
+      // reaches the fewest pages (1 whenever the CV fits on one).
+      const layout = pdfChooseLayout(el);
+      pdfStyleResume(el, layout.w, layout.tight);
+      pdfBalance(el);
+
+      const pageH = layout.w * 297 / 210;
+      if (layout.pages <= 1) {
+        // Exactly one sheet: the background fills the page, nothing spills
+        // onto a blank second page.
+        el.style.minHeight = '';
+        el.style.height = (pageH - 0.5) + 'px';
+        el.style.overflow = 'hidden';
+      } else {
+        root.classList.add('multi');
+        el.style.minHeight = '';
+        addPageFills(el, root);
+      }
+      // The page is printed at scale A4 / w (api/pdf.js), so Chrome lays the
+      // resume out at exactly the width it was measured at.
+      await settle(el);
+
+      const name = [data.personal?.firstname, data.personal?.lastname].filter(Boolean).join(' ');
+      document.title = name ? `${name} — Resume` : 'Resume';
+      document.documentElement.lang = /[ঀ-৿]/.test(JSON.stringify(data)) ? 'bn' : 'en';
+      return { pages: layout.pages, w: layout.w, tight: layout.tight, scale: A4_CSS_W / layout.w };
+    };
+
+    // Manual check: print.html#<lz-string data>
+    document.addEventListener('DOMContentLoaded', () => {
+      const hash = location.hash.slice(1);
+      if (!hash || typeof LZString === 'undefined') return;
+      try {
+        const data = JSON.parse(LZString.decompressFromEncodedURIComponent(hash));
+        window.renderForPrint(data).then(info => {
+          // Browsers' own print has no scale option: a page of w px gives
+          // the same layout (same A4 shape, printed fit-to-page).
+          const s = document.createElement('style');
+          s.textContent = `@page { size: ${info.w}px ${info.w * 297 / 210}px; margin: 0; }`;
+          document.head.appendChild(s);
+          window.__printInfo = info;
+        });
+      } catch (e) { console.error('print.html: bad data', e); }
+    });
+  </script>
+</body>
+</html>

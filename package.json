@@ -1,0 +1,13 @@
+{
+  "name": "taimur-resume",
+  "private": true,
+  "description": "Europass-style resume builder. Static site; the api/ folder holds Vercel serverless functions.",
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "153.0.0",
+    "puppeteer-core": "25.11.0"
+  }
+}

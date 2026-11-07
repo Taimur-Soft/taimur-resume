@@ -1,6 +1,12 @@
 // ======================================================
 // PDF Export Module
-// Renders the resume (html2canvas) into a paginated A4 PDF (jsPDF).
+//
+// 1. Vector PDF (preferred): the server (api/pdf.js) prints the resume in
+//    headless Chrome from print.html, the way professional resume sites do:
+//    real text and shapes, sharp at any zoom, a small file, and text that
+//    ATS systems read directly. Same layout choice as below (pdfChooseLayout).
+// 2. In-browser PDF (fallback, e.g. offline or local development):
+//    renders the resume (html2canvas) into a paginated A4 PDF (jsPDF).
 //
 // Typesetting:
 // - The on-screen preview is 420 px wide, which put text at about 15 pt on
@@ -210,6 +216,65 @@ function pdfExperienceSummary(data) {
   return { years: months / 12, jobs: jobs.length };
 }
 
+const PDF_SERVER_TIMEOUT_MS = 30000; // a cold start of the server's Chrome takes a few seconds
+
+// Vector PDF from the server. Returns { blob, pages }, or null when it is
+// unavailable (offline, local development, an error), so the in-browser PDF
+// takes over.
+async function pdfFromServer(data) {
+  if (!/^https?:$/.test(location.protocol)) return null;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), PDF_SERVER_TIMEOUT_MS);
+  try {
+    const res = await fetch('/api/pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data }),
+      signal: ctrl.signal
+    });
+    if (!res.ok || !(res.headers.get('Content-Type') || '').includes('application/pdf')) return null;
+    const blob = await res.blob();
+    if (blob.size < 1000) return null;
+    return { blob, pages: parseInt(res.headers.get('X-Pdf-Pages'), 10) || 1 };
+  } catch (e) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function pdfSaveBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+// Same naming as the Export menu: "First-Last-Resume".
+function pdfFileBase(data) {
+  return typeof exportFileBase === 'function'
+    ? exportFileBase(data.personal || {})
+    : ([data.personal?.firstname, data.personal?.lastname].filter(Boolean).join('-') || 'My') + '-Resume';
+}
+
+// Europass length advice: 1 page, 2 at most for long careers.
+function pdfLengthToast(pages, data) {
+  const exp = pdfExperienceSummary(data);
+  if (pages === 1) {
+    showToast('✅ PDF downloaded (1 page)', 'success');
+  } else if (pages === 2 && (exp.years >= 10 || exp.jobs > 1)) {
+    showToast('✅ PDF downloaded (2 pages)', 'success');
+  } else if (pages === 2) {
+    showToast('PDF downloaded on 2 pages. Europass advises 1 page with less than 10 years of experience: shorten a few descriptions to fit.', 'info');
+  } else {
+    showToast(`PDF downloaded on ${pages} pages. Europass CVs should be 2 pages at most: shorten descriptions or remove older entries.`, 'info');
+  }
+}
+
 async function exportPDF() {
   const btn = document.getElementById('downloadPdfBtn');
   const preview = document.getElementById('resumePreview');
@@ -219,16 +284,35 @@ async function exportPDF() {
     return;
   }
 
-  if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
-    showToast('⚠️ PDF library unavailable — using Print instead', 'info');
-    printCV();
-    return;
-  }
-
   const originalBtnHTML = btn?.innerHTML;
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+  }
+  const restoreBtn = () => {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalBtnHTML;
+    }
+  };
+
+  // 1. Vector PDF from the server.
+  const raw = window.__viewedResumeData || collectFormData();
+  const pdfData = stripSensitiveItems({ ...raw, template: raw.template || currentTemplate });
+  const vector = await pdfFromServer(pdfData);
+  if (vector) {
+    pdfSaveBlob(vector.blob, `${pdfFileBase(pdfData)}.pdf`);
+    pdfLengthToast(vector.pages, pdfData);
+    restoreBtn();
+    return;
+  }
+
+  // 2. In-browser PDF.
+  if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
+    restoreBtn();
+    showToast('⚠️ PDF library unavailable — using Print instead', 'info');
+    printCV();
+    return;
   }
 
   try {
@@ -344,32 +428,14 @@ async function exportPDF() {
       creator: 'Taimur Resume'
     });
 
-    // Same naming as the Export menu: "First-Last-Resume.pdf".
-    const fileName = typeof exportFileBase === 'function'
-      ? exportFileBase(data.personal || {})
-      : ([data.personal?.firstname, data.personal?.lastname].filter(Boolean).join('-') || 'My') + '-Resume';
-    pdf.save(`${fileName}.pdf`);
-
-    // Europass length advice: 1 page, 2 at most for long careers.
-    const exp = pdfExperienceSummary(data);
-    if (pages === 1) {
-      showToast('✅ PDF downloaded (1 page)', 'success');
-    } else if (pages === 2 && (exp.years >= 10 || exp.jobs > 1)) {
-      showToast('✅ PDF downloaded (2 pages)', 'success');
-    } else if (pages === 2) {
-      showToast('PDF downloaded on 2 pages. Europass advises 1 page with less than 10 years of experience: shorten a few descriptions to fit.', 'info');
-    } else {
-      showToast(`PDF downloaded on ${pages} pages. Europass CVs should be 2 pages at most: shorten descriptions or remove older entries.`, 'info');
-    }
+    pdf.save(`${pdfFileBase(data)}.pdf`);
+    pdfLengthToast(pages, data);
 
   } catch (err) {
     console.error('PDF export failed:', err);
     showToast('❌ Could not generate PDF — try Print instead', 'error');
   } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = originalBtnHTML;
-    }
+    restoreBtn();
   }
 }
 

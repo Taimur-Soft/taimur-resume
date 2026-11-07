@@ -3,7 +3,8 @@
     { "source": "/api/:path*", "destination": "/api/:path*" }
   ],
   "functions": {
-    "api/gemini.js": { "maxDuration": 60 }
+    "api/gemini.js": { "maxDuration": 60 },
+    "api/pdf.js": { "maxDuration": 60, "includeFiles": "node_modules/@sparticuz/chromium/bin/**" }
   },
   "headers": [
     {
