@@ -139,7 +139,7 @@ function autoSyncToCloud() {
   clearTimeout(autoSyncTimer);
   autoSyncTimer = null;
   // Nothing actually changed since the last save/load (e.g. the re-render
-  // right after loading a resume, or undo back to the saved state).
+  // right after loading a resume).
   const snap = formSnapshot();
   if (snap && snap === lastSyncedJSON) {
     if (syncState === 'pending') setCloudSyncStatus('synced');
@@ -929,7 +929,6 @@ function importOneFromBackup(i) {
 async function openImportedResume(data, name) {
   if (!currentUser) {
     restoreFromData(data);
-    if (typeof resetHistory === 'function') resetHistory();
     showToast('✅ Resume imported', 'success');
     return;
   }
@@ -951,7 +950,6 @@ async function openImportedResume(data, name) {
     lastSyncedJSON = null;
 
     restoreFromData(data);
-    if (typeof resetHistory === 'function') resetHistory();
     const clean = collectFormData();
     const p = clean.personal || {};
     const resumeName = String(name || [p.firstname, p.lastname].filter(Boolean).join(' ') || 'Imported Resume').slice(0, 100);
@@ -1678,7 +1676,6 @@ async function loadCloudResume(id, { silent = false } = {}) {
     autoSyncTimer = null;
     loadFailedId = null;
     markSynced(formSnapshot());
-    if (typeof resetHistory === 'function') resetHistory();
     if (silent && typeof reapplyRequestedTemplate === 'function') reapplyRequestedTemplate();
     if (!silent) {
       closeMyResumesModal();

@@ -171,85 +171,11 @@ function renderCV() {
   balanceResumeColumns(preview);
 
   calculateProgress();
-  pushHistory();
 
   // Cloud auto-sync (auth.js) is optional — only push when a viewer is
   // actually signed in, and never let its absence break the local save path.
   if (typeof autoSyncToCloud === 'function') autoSyncToCloud();
 }
-
-// ── UNDO / REDO ─────────────────────────────────────────
-// Snapshots the whole form (via collectFormData/restoreFromData, which
-// already exist for JSON import/export) after each real render — not
-// per keystroke, since renderCV() itself is already debounced. Lets
-// people step back after accidentally clearing a field or deleting an
-// item. Buttons above the preview; Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) only
-// when the cursor isn't in a text box, so the browser's own per-field undo
-// still works while typing.
-const historyStack = [];
-let historyIndex = -1;
-let isRestoringHistory = false;
-const MAX_HISTORY = 50;
-
-function pushHistory() {
-  if (isRestoringHistory) return;
-  const snapshot = JSON.stringify(collectFormData());
-  if (historyStack[historyIndex] === snapshot) return; // nothing actually changed
-
-  historyStack.splice(historyIndex + 1); // drop the old redo branch, if any
-  historyStack.push(snapshot);
-  if (historyStack.length > MAX_HISTORY) historyStack.shift();
-  historyIndex = historyStack.length - 1;
-  updateHistoryButtons();
-}
-
-function undo() {
-  if (historyIndex <= 0) return;
-  historyIndex--;
-  applyHistorySnapshot(historyStack[historyIndex]);
-}
-
-function redo() {
-  if (historyIndex >= historyStack.length - 1) return;
-  historyIndex++;
-  applyHistorySnapshot(historyStack[historyIndex]);
-}
-
-function applyHistorySnapshot(json) {
-  isRestoringHistory = true;
-  try {
-    restoreFromData(JSON.parse(json));
-  } finally {
-    isRestoringHistory = false;
-  }
-  updateHistoryButtons();
-}
-
-function updateHistoryButtons() {
-  const undoBtn = document.getElementById('undoBtn');
-  const redoBtn = document.getElementById('redoBtn');
-  if (undoBtn) undoBtn.disabled = historyIndex <= 0;
-  if (redoBtn) redoBtn.disabled = historyIndex >= historyStack.length - 1;
-}
-
-// Start a fresh history (after opening or importing another resume), so
-// Undo can never bring one resume's content into another.
-function resetHistory() {
-  historyStack.length = 0;
-  historyStack.push(JSON.stringify(collectFormData()));
-  historyIndex = 0;
-  updateHistoryButtons();
-}
-
-document.addEventListener('keydown', (e) => {
-  if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
-  const t = e.target;
-  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-  if (document.querySelector('.share-modal[style*="flex"]')) return; // a window is open
-  const key = e.key.toLowerCase();
-  if (key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
-  else if (key === 'y' || (key === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
-});
 
 function collectFormData() {
   const get = (cls) => {
